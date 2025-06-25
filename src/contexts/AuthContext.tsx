@@ -1,0 +1,77 @@
+import React, { createContext, useContext, useState } from 'react';
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  bio?: string;
+  rating: number;
+  itemsGiven: number;
+  itemsTaken: number;
+}
+
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (userData: Partial<User>) => Promise<void>;
+  logout: () => void;
+  updateProfile: (updates: Partial<User>) => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+
+  const login = async (email: string, password: string) => {
+    // Mock login - in real app, this would call your API
+    const mockUser: User = {
+      id: '1',
+      username: 'EcoWarrior',
+      email,
+      bio: 'Love sharing and reducing waste!',
+      rating: 4.8,
+      itemsGiven: 12,
+      itemsTaken: 8,
+    };
+    setUser(mockUser);
+  };
+
+  const signup = async (userData: Partial<User>) => {
+    // Mock signup - in real app, this would call your API
+    const newUser: User = {
+      id: Date.now().toString(),
+      username: userData.username || 'NewUser',
+      email: userData.email || '',
+      bio: userData.bio || '',
+      rating: 5.0,
+      itemsGiven: 0,
+      itemsTaken: 0,
+    };
+    setUser(newUser);
+  };
+
+  const logout = () => {
+    setUser(null);
+  };
+
+  const updateProfile = (updates: Partial<User>) => {
+    if (user) {
+      setUser({ ...user, ...updates });
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, signup, logout, updateProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
