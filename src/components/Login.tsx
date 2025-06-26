@@ -23,9 +23,34 @@ const Login: React.FC = () => {
     
     // Initialize Google Sign-In
     if (window.google) {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleGoogleSignIn,
+     useEffect(() => {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  if (!clientId) {
+    console.error('Google Client ID is missing!');
+    return;
+  }
+
+  if (window.google && document.getElementById('google-signin-button')) {
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleGoogleSignIn,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+
+    window.google.accounts.id.renderButton(
+      document.getElementById('google-signin-button'),
+      {
+        theme: 'outline',
+        size: 'large',
+        width: '100%',
+        text: isLogin ? 'signin_with' : 'signup_with',
+      }
+    );
+  }
+}, [isLogin]);
+
         auto_select: false,
         cancel_on_tap_outside: true,
       });
