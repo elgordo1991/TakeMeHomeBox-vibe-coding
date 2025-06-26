@@ -42,13 +42,13 @@ const Login: React.FC = () => {
         cancel_on_tap_outside: true,
       });
 
-      window.google.accounts.id.renderButton(
-        document.getElementById('google-signin-button'),
-        {
-          theme: 'outline',
-          size: 'large',
-          width: '100%',
-          text: isLogin ? 'signin_with' : 'signup_with',
+window.google.accounts.id.renderButton(
+  document.getElementById('google-signin-button'),
+  {
+    theme: 'outline',
+    size: 'large',
+    width: '100%',
+    text: 'signin_with', // ✅ safe default
         }
       );
     }
