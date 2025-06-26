@@ -82,22 +82,27 @@ const MapView: React.FC = () => {
 
   // Initialize Google Maps
   useEffect(() => {
-    if (window.google && mapRef.current && !googleMapRef.current) {
-      const defaultCenter = { lat: 51.505, lng: -0.09 }; // London coordinates
-      
-      googleMapRef.current = new window.google.maps.Map(mapRef.current, {
-        zoom: 15,
-        center: userLocation || defaultCenter,
-        styles: isDark ? getDarkMapStyles() : [],
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      });
+  if (
+    typeof window !== "undefined" &&
+    window.google &&
+    window.google.maps &&
+    mapRef.current &&
+    !googleMapRef.current
+  ) {
+    const defaultCenter = { lat: 51.505, lng: -0.09 };
 
-      // Add markers for boxes
-      addMarkersToMap();
-    }
-  }, [userLocation, isDark]);
+    googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+      zoom: 15,
+      center: userLocation || defaultCenter,
+      styles: isDark ? getDarkMapStyles() : [],
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+
+    addMarkersToMap();
+  }
+}, [userLocation, isDark]);
 
   // Get user's current location
   useEffect(() => {
