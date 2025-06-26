@@ -22,7 +22,7 @@ const Login: React.FC = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     
     // Initialize Google Sign-In
-  
+
      useEffect(() => {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
