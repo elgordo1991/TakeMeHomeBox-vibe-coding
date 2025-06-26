@@ -50,7 +50,6 @@ const Login: React.FC = () => {
     );
   }
 }, [isLogin]);
-
         auto_select: false,
         cancel_on_tap_outside: true,
       });
