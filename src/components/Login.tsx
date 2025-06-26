@@ -18,13 +18,33 @@ const Login: React.FC = () => {
   });
   const { login, signup, loginWithGoogle, user } = useAuth();
 
-  const handleGoogleSignIn = async (response: any) => {
-    try {
-      await loginWithGoogle(response.credential);
-    } catch (error) {
-      console.error('Google Sign-In error:', error);
+const handleGoogleSignIn = async (response: any) => {
+  try {
+    const token = response?.credential;
+    const payload = token ? JSON.parse(atob(token.split('.')[1])) : null;
+
+    if (!payload || !payload.sub || !payload.email) {
+      console.error("Invalid Google payload:", payload);
+      return;
     }
-  };
+
+    const googleUser = {
+      id: payload.sub,
+      username: payload.name || payload.email.split('@')[0],
+      email: payload.email,
+      bio: '',
+      rating: 5.0,
+      itemsGiven: 0,
+      itemsTaken: 0,
+      avatar: payload.picture || '',
+    };
+
+    console.log("Decoded Google User:", googleUser);
+    await loginWithGoogle(response.credential);
+  } catch (error) {
+    console.error("Google Sign-In callback error:", error);
+  }
+};
 
 useEffect(() => {
   const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
