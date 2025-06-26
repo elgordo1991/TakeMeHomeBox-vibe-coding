@@ -34,7 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
 
   const login = async (email: string, password: string) => {
-    // Mock login - in real app, this would call your API
     const mockUser: User = {
       id: '1',
       username: 'EcoWarrior',
@@ -48,7 +47,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signup = async (userData: Partial<User>) => {
-    // Mock signup - in real app, this would call your API
     const newUser: User = {
       id: Date.now().toString(),
       username: userData.username || 'NewUser',
@@ -62,40 +60,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async (credential: string) => {
-  try {
-    if (!credential) {
-      throw new Error("Missing Google credential");
-    }
-
-    const payload = JSON.parse(atob(credential.split('.')[1]));
-
-    if (!payload || !payload.sub || !payload.email) {
-      console.error("Invalid Google payload:", payload);
-      return;
-    }
-
-    const googleUser: User = {
-      id: payload.sub,
-      username: payload.name || payload.email.split('@')[0],
-      email: payload.email,
-      bio: '',
-      rating: 5.0,
-      itemsGiven: 0,
-      itemsTaken: 0,
-      avatar: payload.picture || '',
-    };
-
-    console.log("✅ Google user created:", googleUser);
-    setUser(googleUser);
-  } catch (error) {
-    console.error("❌ Error in loginWithGoogle:", error);
-    throw error;
-  }
-};
     try {
-      // Decode the JWT token to get user info
+      if (!credential) {
+        throw new Error("Missing Google credential");
+      }
+
       const payload = JSON.parse(atob(credential.split('.')[1]));
-      
+
+      if (!payload || !payload.sub || !payload.email) {
+        console.error("Invalid Google payload:", payload);
+        return;
+      }
+
       const googleUser: User = {
         id: payload.sub,
         username: payload.name || payload.email.split('@')[0],
@@ -104,14 +80,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         rating: 5.0,
         itemsGiven: 0,
         itemsTaken: 0,
-        avatar: payload.picture,
+        avatar: payload.picture || '',
       };
 
-      console.log("Google payload:", payload);
-console.log("User created:", googleUser);
+      console.log("✅ Google user created:", googleUser);
       setUser(googleUser);
     } catch (error) {
-      console.error('Error processing Google sign-in:', error);
+      console.error("❌ Error in loginWithGoogle:", error);
       throw error;
     }
   };
