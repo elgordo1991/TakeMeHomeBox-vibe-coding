@@ -19,10 +19,12 @@ const Login: React.FC = () => {
   const { login, signup, loginWithGoogle } = useAuth();
 
   useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    
     // Initialize Google Sign-In
     if (window.google) {
       window.google.accounts.id.initialize({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        client_id: clientId,
         callback: handleGoogleSignIn,
         auto_select: false,
         cancel_on_tap_outside: true,
