@@ -16,43 +16,43 @@ const Login: React.FC = () => {
     username: '',
     bio: ''
   });
-  const { login, signup, loginWithGoogle } = useAuth();
+  const { login, signup, loginWithGoogle, user } = useAuth();
 
-const handleGoogleSignIn = async (response: any) => {
-  try {
-    await loginWithGoogle(response.credential);
-  } catch (error) {
-    console.error('Google Sign-In error:', error);
-  }
-};
-useEffect(() => {
-  const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
+  const handleGoogleSignIn = async (response: any) => {
+    try {
+      await loginWithGoogle(response.credential);
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+    }
+  };
 
+  useEffect(() => {
+    const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
 
-  if (!clientId) {
-    console.error('Google Client ID is missing!');
-    return;
-  }
+    if (!clientId) {
+      console.error('Google Client ID is missing!');
+      return;
+    }
 
-  if (window.google && document.getElementById('google-signin-button')) {
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: handleGoogleSignIn,
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    });
+    if (window.google && document.getElementById('google-signin-button')) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleSignIn,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
 
-    window.google.accounts.id.renderButton(
-      document.getElementById('google-signin-button'),
-      {
-        theme: 'outline',
-        size: 'large',
-        width: '100%',
-        text: isLogin ? 'signin_with' : 'signup_with',
-      }
-    );
-  }
-}, [isLogin]);
+      window.google.accounts.id.renderButton(
+        document.getElementById('google-signin-button'),
+        {
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+          text: isLogin ? 'signin_with' : 'signup_with',
+        }
+      );
+    }
+  }, [isLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +73,9 @@ useEffect(() => {
       [e.target.name]: e.target.value
     });
   };
+
+  // ✅ Prevent rendering anything until user is set or confirmed null
+  if (user === undefined) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-primary-50 to-earth-50 dark:from-gray-900 dark:to-gray-800">
