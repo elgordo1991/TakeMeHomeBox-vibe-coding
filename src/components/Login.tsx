@@ -55,23 +55,22 @@ useEffect(() => {
   }
 
   try {
-    if (window.google && document.getElementById("google-signin-button")) {
+    const signinButton = document.getElementById("google-signin-button");
+
+    if (window.google && signinButton) {
       window.google.accounts.id.initialize({
-        client_id: clientId,
+        client_id: clientId, // ✅ use the string directly
         callback: handleGoogleSignIn,
         auto_select: false,
         cancel_on_tap_outside: true,
       });
 
-      window.google.accounts.id.renderButton(
-        document.getElementById("google-signin-button"),
-        {
-          theme: "outline",
-          size: "large",
-          width: "100%",
-          text: "signin_with", // ✅ hardcoded safe value
-        }
-      );
+      window.google.accounts.id.renderButton(signinButton, {
+        theme: "outline",
+        size: "large",
+        width: "100%",
+        text: "signin_with",
+      });
     }
   } catch (err) {
     console.error("Google Sign-In init failed:", err);
