@@ -22,7 +22,7 @@ const Login: React.FC = () => {
     // Initialize Google Sign-In
     if (window.google) {
       window.google.accounts.id.initialize({
-        client_id: 'YOUR_GOOGLE_CLIENT_ID', // Replace with your actual Google Client ID
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
         callback: handleGoogleSignIn,
         auto_select: false,
         cancel_on_tap_outside: true,
