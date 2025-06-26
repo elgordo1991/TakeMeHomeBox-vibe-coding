@@ -55,17 +55,17 @@ useEffect(() => {
   }
 
   try {
-    const signinButton = document.getElementById("google-signin-button");
+    const buttonEl = document.getElementById("google-signin-button");
 
-    if (window.google && signinButton) {
+    if (window.google && buttonEl) {
       window.google.accounts.id.initialize({
-        client_id: clientId, // ✅ use the string directly
+        client_id: clientId, // ✅ NOT clientId.id!
         callback: handleGoogleSignIn,
         auto_select: false,
         cancel_on_tap_outside: true,
       });
 
-      window.google.accounts.id.renderButton(signinButton, {
+      window.google.accounts.id.renderButton(buttonEl, {
         theme: "outline",
         size: "large",
         width: "100%",
