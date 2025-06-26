@@ -15,7 +15,37 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (userData: Partial<User>) => Promise<void>;
-  loginWithGoogle: (credential: string) => Promise<void>;
+  const loginWithGoogle = async (credential: string) => {
+  try {
+    if (!credential) {
+      throw new Error("Missing Google credential");
+    }
+
+    const payload = JSON.parse(atob(credential.split('.')[1]));
+
+    if (!payload || !payload.sub || !payload.email) {
+      console.error("Invalid Google payload:", payload);
+      return;
+    }
+
+    const googleUser: User = {
+      id: payload.sub,
+      username: payload.name || payload.email.split('@')[0],
+      email: payload.email,
+      bio: '',
+      rating: 5.0,
+      itemsGiven: 0,
+      itemsTaken: 0,
+      avatar: payload.picture || '',
+    };
+
+    console.log("✅ Google user created:", googleUser);
+    setUser(googleUser);
+  } catch (error) {
+    console.error("❌ Error in loginWithGoogle:", error);
+    throw error;
+  }
+};
   logout: () => void;
   updateProfile: (updates: Partial<User>) => void;
 }
