@@ -9,10 +9,10 @@ import { useAuth } from '../contexts/AuthContext';
 
 const MainApp: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('map');
+const [activeTab, setActiveTab] = useState('map');
 
-  if (!user) {
-    return <Login />;
+if (!user) {
+  return <Login />;
   }
 
   return (
