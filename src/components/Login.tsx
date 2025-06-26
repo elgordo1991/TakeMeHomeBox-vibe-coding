@@ -18,7 +18,14 @@ const Login: React.FC = () => {
   });
   const { login, signup, loginWithGoogle } = useAuth();
 
-     useEffect(() => {
+const handleGoogleSignIn = async (response: any) => {
+  try {
+    await loginWithGoogle(response.credential);
+  } catch (error) {
+    console.error('Google Sign-In error:', error);
+  }
+};
+useEffect(() => {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   if (!clientId) {
@@ -45,29 +52,6 @@ const Login: React.FC = () => {
     );
   }
 }, [isLogin]);
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
-
-      window.google.accounts.id.renderButton(
-        document.getElementById('google-signin-button'),
-        {
-          theme: 'outline',
-          size: 'large',
-          width: '100%',
-          text: isLogin ? 'signin_with' : 'signup_with',
-        }
-      );
-    }
-  }, [isLogin]);
-
-  const handleGoogleSignIn = async (response: any) => {
-    try {
-      await loginWithGoogle(response.credential);
-    } catch (error) {
-      console.error('Google Sign-In error:', error);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
