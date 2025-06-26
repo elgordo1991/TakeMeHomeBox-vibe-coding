@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, MapPin, Clock, Star, Camera, MessageCircle, Locate } from 'lucide-react';
+import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface BoxListing {
@@ -13,6 +13,7 @@ interface BoxListing {
   image: string;
   location: { lat: number; lng: number };
   isSpotted?: boolean;
+  userRating?: number;
 }
 
 declare global {
@@ -27,6 +28,8 @@ const MapView: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedBox, setSelectedBox] = useState<BoxListing | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showRating, setShowRating] = useState(false);
+  const [hoverRating, setHoverRating] = useState(0);
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -269,6 +272,57 @@ const MapView: React.FC = () => {
     }
   };
 
+  const renderBoxRating = (rating: number, size: 'sm' | 'lg' = 'sm') => {
+    const boxes = [];
+    const sizeClass = size === 'lg' ? 'text-2xl' : 'text-base';
+    
+    for (let i = 1; i <= 5; i++) {
+      boxes.push(
+        <span
+          key={i}
+          className={`${sizeClass} ${i <= rating ? 'opacity-100' : 'opacity-30'}`}
+        >
+          📦
+        </span>
+      );
+    }
+    return <div className="flex items-center space-x-1">{boxes}</div>;
+  };
+
+  const renderInteractiveRating = (currentRating: number, onRate: (rating: number) => void) => {
+    const boxes = [];
+    
+    for (let i = 1; i <= 5; i++) {
+      boxes.push(
+        <button
+          key={i}
+          type="button"
+          onClick={() => onRate(i)}
+          onMouseEnter={() => setHoverRating(i)}
+          onMouseLeave={() => setHoverRating(0)}
+          className={`text-3xl transition-all duration-200 hover:scale-110 ${
+            i <= (hoverRating || currentRating) ? 'opacity-100' : 'opacity-30'
+          }`}
+        >
+          📦
+        </button>
+      );
+    }
+    return <div className="flex items-center justify-center space-x-2">{boxes}</div>;
+  };
+
+  const handleRating = (rating: number) => {
+    if (selectedBox) {
+      // Update the box rating (in real app, this would call your API)
+      const updatedBox = { ...selectedBox, userRating: rating };
+      setSelectedBox(updatedBox);
+      setShowRating(false);
+      
+      // Show success message
+      alert(`Thanks for rating! You gave ${rating} boxes.`);
+    }
+  };
+
   const filteredBoxes = mockBoxes.filter(box => {
     const matchesSearch = box.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          box.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -365,8 +419,8 @@ const MapView: React.FC = () => {
                     )}
                   </h3>
                   <div className="flex items-center space-x-1">
-                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {renderBoxRating(Math.round(box.rating))}
+                    <span className="text-sm text-gray-600 dark:text-gray-400 ml-1">
                       {box.rating}
                     </span>
                   </div>
@@ -400,7 +454,11 @@ const MapView: React.FC = () => {
                   {selectedBox.title}
                 </h2>
                 <button
-                  onClick={() => setSelectedBox(null)}
+                  onClick={() => {
+                    setSelectedBox(null);
+                    setShowRating(false);
+                    setHoverRating(0);
+                  }}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
                   ✕
@@ -429,23 +487,52 @@ const MapView: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {renderBoxRating(Math.round(selectedBox.rating))}
+                  <span className="text-sm font-medium text-gray-900 dark:text-white ml-1">
                     {selectedBox.rating}
                   </span>
                 </div>
               </div>
+
+              {/* Rating Section */}
+              {showRating ? (
+                <div className="bg-primary-50 dark:bg-primary-900/20 rounded-xl p-4 mb-4 border border-primary-200 dark:border-primary-800">
+                  <h3 className="text-center font-semibold text-gray-900 dark:text-white mb-3">
+                    Rate this box
+                  </h3>
+                  <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    How would you rate the quality and accuracy of this listing?
+                  </p>
+                  {renderInteractiveRating(selectedBox.userRating || 0, handleRating)}
+                  <div className="flex justify-center space-x-2 mt-4">
+                    <button
+                      onClick={() => setShowRating(false)}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex space-x-3 mb-4">
+                  <button 
+                    onClick={() => setShowRating(true)}
+                    className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <span>📦</span>
+                    <span>Rate Box</span>
+                  </button>
+                  <button className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
+                    <Camera className="w-4 h-4" />
+                    <span>Report</span>
+                  </button>
+                </div>
+              )}
               
-              <div className="flex space-x-3">
-                <button className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Comment</span>
-                </button>
-                <button className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
-                  <Camera className="w-4 h-4" />
-                  <span>Report</span>
-                </button>
-              </div>
+              <button className="w-full bg-earth-500 hover:bg-earth-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
+                <MessageCircle className="w-4 h-4" />
+                <span>Leave Comment</span>
+              </button>
             </div>
           </div>
         </div>
