@@ -26,36 +26,37 @@ const Login: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
+useEffect(() => {
+  const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
 
-    if (!clientId) {
-      console.error('Google Client ID is missing!');
-      return;
-    }
+  if (!clientId) {
+    console.error("Google Client ID is missing!");
+    return;
+  }
 
-    if (window.google && document.getElementById('google-signin-button')) {
-     try {
-  window.google.accounts.id.initialize({
-    client_id: clientId,
-    callback: handleGoogleSignIn,
-    auto_select: false,
-    cancel_on_tap_outside: true,
-  });
+  try {
+    if (window.google && document.getElementById("google-signin-button")) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleSignIn,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
 
-  window.google.accounts.id.renderButton(
-    document.getElementById('google-signin-button'),
-    {
-      theme: 'outline',
-      size: 'large',
-      width: '100%',
-      text: 'signin_with',
+      window.google.accounts.id.renderButton(
+        document.getElementById("google-signin-button"),
+        {
+          theme: "outline",
+          size: "large",
+          width: "100%",
+          text: "signin_with", // ✅ hardcoded safe value
+        }
+      );
     }
-  );
-} catch (err) {
-  console.error("Google Sign-In init failed:", err);
-    }
-  }, [isLogin]);
+  } catch (err) {
+    console.error("Google Sign-In init failed:", err);
+  }
+}, [isLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
