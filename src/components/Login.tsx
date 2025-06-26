@@ -18,11 +18,6 @@ const Login: React.FC = () => {
   });
   const { login, signup, loginWithGoogle } = useAuth();
 
-  useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    
-    // Initialize Google Sign-In
-
      useEffect(() => {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
