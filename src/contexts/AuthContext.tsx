@@ -76,7 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         itemsTaken: 0,
         avatar: payload.picture,
       };
-      
+
+      console.log("Google payload:", payload);
+console.log("User created:", googleUser);
       setUser(googleUser);
     } catch (error) {
       console.error('Error processing Google sign-in:', error);
