@@ -15,37 +15,7 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (userData: Partial<User>) => Promise<void>;
-  const loginWithGoogle = async (credential: string) => {
-  try {
-    if (!credential) {
-      throw new Error("Missing Google credential");
-    }
-
-    const payload = JSON.parse(atob(credential.split('.')[1]));
-
-    if (!payload || !payload.sub || !payload.email) {
-      console.error("Invalid Google payload:", payload);
-      return;
-    }
-
-    const googleUser: User = {
-      id: payload.sub,
-      username: payload.name || payload.email.split('@')[0],
-      email: payload.email,
-      bio: '',
-      rating: 5.0,
-      itemsGiven: 0,
-      itemsTaken: 0,
-      avatar: payload.picture || '',
-    };
-
-    console.log("✅ Google user created:", googleUser);
-    setUser(googleUser);
-  } catch (error) {
-    console.error("❌ Error in loginWithGoogle:", error);
-    throw error;
-  }
-};
+  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => void;
 }
@@ -92,6 +62,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async (credential: string) => {
+  try {
+    if (!credential) {
+      throw new Error("Missing Google credential");
+    }
+
+    const payload = JSON.parse(atob(credential.split('.')[1]));
+
+    if (!payload || !payload.sub || !payload.email) {
+      console.error("Invalid Google payload:", payload);
+      return;
+    }
+
+    const googleUser: User = {
+      id: payload.sub,
+      username: payload.name || payload.email.split('@')[0],
+      email: payload.email,
+      bio: '',
+      rating: 5.0,
+      itemsGiven: 0,
+      itemsTaken: 0,
+      avatar: payload.picture || '',
+    };
+
+    console.log("✅ Google user created:", googleUser);
+    setUser(googleUser);
+  } catch (error) {
+    console.error("❌ Error in loginWithGoogle:", error);
+    throw error;
+  }
+};
     try {
       // Decode the JWT token to get user info
       const payload = JSON.parse(atob(credential.split('.')[1]));
