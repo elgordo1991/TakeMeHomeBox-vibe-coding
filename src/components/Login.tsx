@@ -26,7 +26,8 @@ const handleGoogleSignIn = async (response: any) => {
   }
 };
 useEffect(() => {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
+
 
   if (!clientId) {
     console.error('Google Client ID is missing!');
