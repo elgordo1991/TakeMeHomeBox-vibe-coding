@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Filter, MapPin, Clock, Star, Camera, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Filter, MapPin, Clock, Star, Camera, MessageCircle, Locate } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface BoxListing {
@@ -15,11 +15,21 @@ interface BoxListing {
   isSpotted?: boolean;
 }
 
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 const MapView: React.FC = () => {
   const { isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedBox, setSelectedBox] = useState<BoxListing | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
 
   const categories = [
     { id: 'all', name: 'All', color: 'bg-gray-100 text-gray-700' },
@@ -67,14 +77,221 @@ const MapView: React.FC = () => {
     }
   ];
 
+  // Initialize Google Maps
+  useEffect(() => {
+    if (window.google && mapRef.current && !googleMapRef.current) {
+      const defaultCenter = { lat: 51.505, lng: -0.09 }; // London coordinates
+      
+      googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+        zoom: 15,
+        center: userLocation || defaultCenter,
+        styles: isDark ? getDarkMapStyles() : [],
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+
+      // Add markers for boxes
+      addMarkersToMap();
+    }
+  }, [userLocation, isDark]);
+
+  // Get user's current location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setUserLocation(location);
+          
+          if (googleMapRef.current) {
+            googleMapRef.current.setCenter(location);
+          }
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        }
+      );
+    }
+  }, []);
+
+  const addMarkersToMap = () => {
+    if (!googleMapRef.current || !window.google) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
+
+    // Add user location marker
+    if (userLocation) {
+      const userMarker = new window.google.maps.Marker({
+        position: userLocation,
+        map: googleMapRef.current,
+        title: 'Your Location',
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#22c55e',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+        },
+      });
+      markersRef.current.push(userMarker);
+    }
+
+    // Add box markers
+    mockBoxes.forEach((box) => {
+      const marker = new window.google.maps.Marker({
+        position: box.location,
+        map: googleMapRef.current,
+        title: box.title,
+        icon: {
+          path: window.google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: box.isSpotted ? '#f97316' : '#22c55e',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+        },
+      });
+
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: `
+          <div class="p-2">
+            <h3 class="font-semibold text-gray-900">${box.title}</h3>
+            <p class="text-sm text-gray-600 mt-1">${box.description}</p>
+            <div class="flex items-center justify-between mt-2">
+              <span class="text-xs text-gray-500">${box.distance}</span>
+              <span class="text-xs text-gray-500">${box.timePosted}</span>
+            </div>
+          </div>
+        `,
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(googleMapRef.current, marker);
+        setSelectedBox(box);
+      });
+
+      markersRef.current.push(marker);
+    });
+  };
+
+  const getDarkMapStyles = () => [
+    { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+    {
+      featureType: 'administrative.locality',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#d59563' }],
+    },
+    {
+      featureType: 'poi',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#d59563' }],
+    },
+    {
+      featureType: 'poi.park',
+      elementType: 'geometry',
+      stylers: [{ color: '#263c3f' }],
+    },
+    {
+      featureType: 'poi.park',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#6b9a76' }],
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry',
+      stylers: [{ color: '#38414e' }],
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry.stroke',
+      stylers: [{ color: '#212a37' }],
+    },
+    {
+      featureType: 'road',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#9ca5b3' }],
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'geometry',
+      stylers: [{ color: '#746855' }],
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'geometry.stroke',
+      stylers: [{ color: '#1f2835' }],
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#f3d19c' }],
+    },
+    {
+      featureType: 'transit',
+      elementType: 'geometry',
+      stylers: [{ color: '#2f3948' }],
+    },
+    {
+      featureType: 'transit.station',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#d59563' }],
+    },
+    {
+      featureType: 'water',
+      elementType: 'geometry',
+      stylers: [{ color: '#17263c' }],
+    },
+    {
+      featureType: 'water',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#515c6d' }],
+    },
+    {
+      featureType: 'water',
+      elementType: 'labels.text.stroke',
+      stylers: [{ color: '#17263c' }],
+    },
+  ];
+
+  const centerOnUserLocation = () => {
+    if (userLocation && googleMapRef.current) {
+      googleMapRef.current.setCenter(userLocation);
+      googleMapRef.current.setZoom(16);
+    }
+  };
+
+  const filteredBoxes = mockBoxes.filter(box => {
+    const matchesSearch = box.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         box.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || box.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="p-4">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            Nearby Boxes
-          </h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              Nearby Boxes
+            </h1>
+            <button
+              onClick={centerOnUserLocation}
+              className="p-2 bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
+            >
+              <Locate className="w-5 h-5" />
+            </button>
+          </div>
           
           {/* Search */}
           <div className="relative mb-4">
@@ -107,39 +324,25 @@ const MapView: React.FC = () => {
         </div>
       </div>
 
-      {/* Map placeholder */}
-      <div className="h-64 bg-gradient-to-br from-primary-100 to-earth-100 dark:from-gray-700 dark:to-gray-600 relative overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <MapPin className="w-12 h-12 text-primary-500 mx-auto mb-2" />
-            <p className="text-gray-600 dark:text-gray-300">Interactive Map View</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Google Maps integration would go here
-            </p>
+      {/* Google Maps */}
+      <div className="h-64 relative">
+        <div ref={mapRef} className="w-full h-full" />
+        {!window.google && (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary-100 to-earth-100 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+            <div className="text-center">
+              <MapPin className="w-12 h-12 text-primary-500 mx-auto mb-2" />
+              <p className="text-gray-600 dark:text-gray-300">Loading Google Maps...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Please add your Google Maps API key
+              </p>
+            </div>
           </div>
-        </div>
-        
-        {/* Mock map pins */}
-        {mockBoxes.map((box, index) => (
-          <button
-            key={box.id}
-            onClick={() => setSelectedBox(box)}
-            className={`absolute w-8 h-8 bg-primary-500 rounded-full border-2 border-white shadow-lg transform hover:scale-110 transition-transform ${
-              box.isSpotted ? 'bg-orange-500' : 'bg-primary-500'
-            }`}
-            style={{
-              left: `${30 + index * 25}%`,
-              top: `${40 + index * 15}%`
-            }}
-          >
-            <MapPin className="w-4 h-4 text-white mx-auto" />
-          </button>
-        ))}
+        )}
       </div>
 
       {/* Listings */}
       <div className="p-4 space-y-4">
-        {mockBoxes.map((box) => (
+        {filteredBoxes.map((box) => (
           <div
             key={box.id}
             onClick={() => setSelectedBox(box)}

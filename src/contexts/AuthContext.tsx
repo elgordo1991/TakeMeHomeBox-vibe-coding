@@ -8,12 +8,14 @@ interface User {
   rating: number;
   itemsGiven: number;
   itemsTaken: number;
+  avatar?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (userData: Partial<User>) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => void;
 }
@@ -59,6 +61,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
+  const loginWithGoogle = async (credential: string) => {
+    try {
+      // Decode the JWT token to get user info
+      const payload = JSON.parse(atob(credential.split('.')[1]));
+      
+      const googleUser: User = {
+        id: payload.sub,
+        username: payload.name || payload.email.split('@')[0],
+        email: payload.email,
+        bio: '',
+        rating: 5.0,
+        itemsGiven: 0,
+        itemsTaken: 0,
+        avatar: payload.picture,
+      };
+      
+      setUser(googleUser);
+    } catch (error) {
+      console.error('Error processing Google sign-in:', error);
+      throw error;
+    }
+  };
+
   const logout = () => {
     setUser(null);
   };
@@ -70,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, login, signup, loginWithGoogle, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

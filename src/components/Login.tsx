@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, Mail, Lock, User, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -10,7 +16,37 @@ const Login: React.FC = () => {
     username: '',
     bio: ''
   });
-  const { login, signup } = useAuth();
+  const { login, signup, loginWithGoogle } = useAuth();
+
+  useEffect(() => {
+    // Initialize Google Sign-In
+    if (window.google) {
+      window.google.accounts.id.initialize({
+        client_id: 'YOUR_GOOGLE_CLIENT_ID', // Replace with your actual Google Client ID
+        callback: handleGoogleSignIn,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+
+      window.google.accounts.id.renderButton(
+        document.getElementById('google-signin-button'),
+        {
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+          text: isLogin ? 'signin_with' : 'signup_with',
+        }
+      );
+    }
+  }, [isLogin]);
+
+  const handleGoogleSignIn = async (response: any) => {
+    try {
+      await loginWithGoogle(response.credential);
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +85,23 @@ const Login: React.FC = () => {
             <p className="text-gray-600 dark:text-gray-400 mt-2">
               {isLogin ? 'Welcome back!' : 'Join the community'}
             </p>
+          </div>
+
+          {/* Google Sign-In Button */}
+          <div className="mb-6">
+            <div id="google-signin-button" className="w-full"></div>
+          </div>
+
+          {/* Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                Or continue with email
+              </span>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

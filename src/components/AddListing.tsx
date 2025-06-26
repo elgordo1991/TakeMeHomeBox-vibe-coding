@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
-import { Camera, MapPin, Calendar, Tag, Upload, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, MapPin, Calendar, Tag, Upload, X, Locate } from 'lucide-react';
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 const AddListing: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -8,12 +14,87 @@ const AddListing: React.FC = () => {
     category: '',
     images: [] as string[],
     location: '',
+    coordinates: null as { lat: number; lng: number } | null,
     isSpotted: false
   });
+
+  const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const [showMap, setShowMap] = useState(false);
 
   const categories = [
     'Books', 'Clothes', 'Toys', 'Kitchen', 'Electronics', 'Furniture', 'Garden', 'Sports', 'Other'
   ];
+
+  // Initialize Google Maps for location selection
+  useEffect(() => {
+    if (showMap && window.google && mapRef.current && !googleMapRef.current) {
+      const defaultCenter = { lat: 51.505, lng: -0.09 };
+      
+      googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+        zoom: 15,
+        center: formData.coordinates || defaultCenter,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+
+      // Add click listener to set location
+      googleMapRef.current.addListener('click', (event: any) => {
+        const lat = event.latLng.lat();
+        const lng = event.latLng.lng();
+        
+        setFormData(prev => ({
+          ...prev,
+          coordinates: { lat, lng }
+        }));
+
+        // Update marker position
+        if (markerRef.current) {
+          markerRef.current.setPosition({ lat, lng });
+        } else {
+          markerRef.current = new window.google.maps.Marker({
+            position: { lat, lng },
+            map: googleMapRef.current,
+            title: 'Box Location',
+            draggable: true,
+          });
+
+          markerRef.current.addListener('dragend', (event: any) => {
+            const newLat = event.latLng.lat();
+            const newLng = event.latLng.lng();
+            setFormData(prev => ({
+              ...prev,
+              coordinates: { lat: newLat, lng: newLng }
+            }));
+          });
+        }
+
+        // Reverse geocode to get address
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results: any, status: any) => {
+          if (status === 'OK' && results[0]) {
+            setFormData(prev => ({
+              ...prev,
+              location: results[0].formatted_address
+            }));
+          }
+        });
+      });
+
+      // Get user's current location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((position) => {
+          const userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          googleMapRef.current.setCenter(userLocation);
+        });
+      }
+    }
+  }, [showMap]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
@@ -41,6 +122,56 @@ const AddListing: React.FC = () => {
     });
   };
 
+  const handleLocationClick = () => {
+    setShowMap(true);
+  };
+
+  const handleMapClose = () => {
+    setShowMap(false);
+  };
+
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        
+        setFormData(prev => ({
+          ...prev,
+          coordinates: location
+        }));
+
+        if (googleMapRef.current) {
+          googleMapRef.current.setCenter(location);
+          
+          if (markerRef.current) {
+            markerRef.current.setPosition(location);
+          } else {
+            markerRef.current = new window.google.maps.Marker({
+              position: location,
+              map: googleMapRef.current,
+              title: 'Box Location',
+              draggable: true,
+            });
+          }
+
+          // Reverse geocode to get address
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ location }, (results: any, status: any) => {
+            if (status === 'OK' && results[0]) {
+              setFormData(prev => ({
+                ...prev,
+                location: results[0].formatted_address
+              }));
+            }
+          });
+        }
+      });
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Mock submission - in real app, this would call your API
@@ -53,8 +184,10 @@ const AddListing: React.FC = () => {
       category: '',
       images: [],
       location: '',
+      coordinates: null,
       isSpotted: false
     });
+    setShowMap(false);
   };
 
   return (
@@ -201,17 +334,37 @@ const AddListing: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Location
           </label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleInputChange}
-              placeholder="Tap to set location on map"
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              required
-            />
+          <div className="space-y-3">
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleInputChange}
+                placeholder="Tap to set location on map"
+                onClick={handleLocationClick}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-pointer"
+                readOnly
+                required
+              />
+            </div>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={handleLocationClick}
+                className="flex-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 py-2 px-4 rounded-lg font-medium hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
+              >
+                Set on Map
+              </button>
+              <button
+                type="button"
+                onClick={getCurrentLocation}
+                className="flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                <Locate className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
             Precise location helps others find your box easily
@@ -243,6 +396,44 @@ const AddListing: React.FC = () => {
           {formData.isSpotted ? 'Report Spotted Box' : 'List My Box'}
         </button>
       </form>
+
+      {/* Map Modal */}
+      {showMap && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md h-96 overflow-hidden">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                Set Box Location
+              </h3>
+              <button
+                onClick={handleMapClose}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="h-64">
+              <div ref={mapRef} className="w-full h-full" />
+              {!window.google && (
+                <div className="w-full h-full bg-gradient-to-br from-primary-100 to-earth-100 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+                  <div className="text-center">
+                    <MapPin className="w-8 h-8 text-primary-500 mx-auto mb-2" />
+                    <p className="text-gray-600 dark:text-gray-300">Loading Google Maps...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-4">
+              <button
+                onClick={handleMapClose}
+                className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2 rounded-lg font-medium transition-colors"
+              >
+                Confirm Location
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
