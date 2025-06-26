@@ -17,6 +17,10 @@ const Login: React.FC = () => {
     bio: ''
   });
   const { login, signup, loginWithGoogle, user } = useAuth();
+  if (user === undefined || user === null) {
+  console.log("User not ready, skipping render");
+  return null;
+}
 
 const handleGoogleSignIn = async (response: any) => {
   try {
