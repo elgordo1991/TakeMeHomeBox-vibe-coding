@@ -23,7 +23,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (userData: Partial<User>) => Promise<void>;
+  signup: (userData: Partial<User> & { password: string }) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => void;
@@ -42,7 +42,6 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  // Watch Firebase auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
@@ -79,8 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const signup = async (userData: Partial<User>) => {
-    const result = await createUserWithEmailAndPassword(auth, userData.email!, userData.password!);
+  const signup = async (userData: Partial<User> & { password: string }) => {
+    const result = await createUserWithEmailAndPassword(auth, userData.email!, userData.password);
     const firebaseUser = result.user;
     setUser({
       id: firebaseUser.uid,
@@ -98,7 +97,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = GoogleAuthProvider.credential(credential);
     const result = await signInWithCredential(auth, provider);
     const firebaseUser = result.user;
-
     setUser({
       id: firebaseUser.uid,
       username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
