@@ -16,8 +16,15 @@ const Login: React.FC = () => {
     username: '',
     bio: ''
   });
+
   const { login, signup, loginWithGoogle, user } = useAuth();
 
+  // ✅ If already logged in, don’t show login page
+  if (user) {
+    return null;
+  }
+
+  // ✅ Handle Google sign-in safely
   const handleGoogleSignIn = async (response: any) => {
     try {
       await loginWithGoogle(response.credential);
@@ -26,9 +33,9 @@ const Login: React.FC = () => {
     }
   };
 
+  // ✅ Initialize Google Sign-In button
   useEffect(() => {
     const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
-
     const buttonEl = document.getElementById("google-signin-button");
 
     if (window.google && buttonEl) {
@@ -48,6 +55,7 @@ const Login: React.FC = () => {
     }
   }, [isLogin]);
 
+  // ✅ Handle email-based login/signup
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -68,12 +76,11 @@ const Login: React.FC = () => {
     });
   };
 
-  if (user !== null) return null;
-
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-primary-50 to-earth-50 dark:from-gray-900 dark:to-gray-800">
       <div className="w-full max-w-md">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+          {/* Logo & Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="bg-primary-100 dark:bg-primary-900 p-3 rounded-full">
@@ -88,10 +95,12 @@ const Login: React.FC = () => {
             </p>
           </div>
 
+          {/* Google Sign-In Button */}
           <div className="mb-6">
             <div id="google-signin-button" className="w-full"></div>
           </div>
 
+          {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
@@ -103,7 +112,9 @@ const Login: React.FC = () => {
             </div>
           </div>
 
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Email
@@ -122,6 +133,7 @@ const Login: React.FC = () => {
               </div>
             </div>
 
+            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Password
@@ -140,8 +152,10 @@ const Login: React.FC = () => {
               </div>
             </div>
 
+            {/* Additional fields for signup */}
             {!isLogin && (
               <>
+                {/* Username */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Username
@@ -160,6 +174,7 @@ const Login: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Bio */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Bio (Optional)
@@ -179,6 +194,7 @@ const Login: React.FC = () => {
               </>
             )}
 
+            {/* Submit Button */}
             <button
               type="submit"
               className="w-full bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-lg font-medium transition-colors duration-200 transform hover:scale-105"
@@ -187,6 +203,7 @@ const Login: React.FC = () => {
             </button>
           </form>
 
+          {/* Toggle Sign-in/Sign-up */}
           <div className="mt-6 text-center">
             <button
               onClick={() => setIsLogin(!isLogin)}
