@@ -72,7 +72,15 @@ const Login: React.FC = () => {
     };
 
     // Try to initialize immediately
+    
     console.log('window.google:', window.google);
+    if (!window.google) {
+  const script = document.createElement('script');
+  script.src = 'https://accounts.google.com/gsi/client';
+  script.async = true;
+  script.defer = true;
+  document.body.appendChild(script);
+
     initializeGoogleSignIn();
 
     // Set up multiple retry attempts
