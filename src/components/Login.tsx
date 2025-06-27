@@ -19,7 +19,7 @@ const Login: React.FC = () => {
 
   const { login, signup, loginWithGoogle, user } = useAuth();
 
-  // ✅ If already logged in, don’t show login page
+  // ✅ If already logged in, don't show login page
   if (user) {
     return null;
   }
@@ -38,7 +38,8 @@ const Login: React.FC = () => {
     const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
     const buttonEl = document.getElementById("google-signin-button");
 
-    if (window.google && buttonEl) {
+    // ✅ Fixed: Check if window.google.accounts exists before accessing .id
+    if (window.google && window.google.accounts && window.google.accounts.id && buttonEl) {
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: handleGoogleSignIn,
