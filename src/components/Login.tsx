@@ -10,6 +10,7 @@ declare global {
 
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -33,7 +34,7 @@ const Login: React.FC = () => {
     }
   };
 
-  // ✅ Initialize Google Sign-In button
+  // ✅ Initialize Google Sign-In button with better error handling
   useEffect(() => {
     const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
     
@@ -57,20 +58,45 @@ const Login: React.FC = () => {
             text: "signin_with",
             shape: "rectangular",
           });
+
+          setGoogleLoaded(true);
+          console.log("✅ Google Sign-In button rendered successfully");
         } catch (error) {
           console.error("Google Sign-In initialization error:", error);
+          setGoogleLoaded(false);
         }
+      } else {
+        console.log("Google API not ready yet, will retry...");
+        setGoogleLoaded(false);
       }
     };
 
     // Try to initialize immediately
     initializeGoogleSignIn();
 
-    // Also try after a short delay in case the Google API is still loading
-    const timeout = setTimeout(initializeGoogleSignIn, 1000);
+    // Set up multiple retry attempts
+    const retryIntervals = [500, 1000, 2000, 3000];
+    const timeouts = retryIntervals.map(delay => 
+      setTimeout(() => {
+        if (!googleLoaded) {
+          initializeGoogleSignIn();
+        }
+      }, delay)
+    );
 
-    return () => clearTimeout(timeout);
-  }, [isLogin]);
+    // Listen for the Google API load event
+    const handleGoogleLoad = () => {
+      console.log("Google API loaded via event listener");
+      setTimeout(initializeGoogleSignIn, 100);
+    };
+
+    window.addEventListener('load', handleGoogleLoad);
+
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+      window.removeEventListener('load', handleGoogleLoad);
+    };
+  }, [isLogin, googleLoaded]);
 
   // ✅ Handle email-based login/signup
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,6 +117,15 @@ const Login: React.FC = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleGoogleFallback = () => {
+    // Fallback Google sign-in attempt
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      window.google.accounts.id.prompt();
+    } else {
+      alert('Google Sign-In is not available. Please use email login or try refreshing the page.');
+    }
   };
 
   return (
@@ -114,14 +149,14 @@ const Login: React.FC = () => {
 
           {/* Google Sign-In Button */}
           <div className="mb-6">
-            <div id="google-signin-button" className="w-full flex justify-center"></div>
-            {/* Fallback if Google button doesn't load */}
-            <div className="w-full">
+            <div id="google-signin-button" className="w-full flex justify-center min-h-[44px]"></div>
+            
+            {/* Fallback Google button if the official one doesn't load */}
+            {!googleLoaded && (
               <button
                 type="button"
+                onClick={handleGoogleFallback}
                 className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                style={{ display: 'none' }}
-                id="google-fallback-button"
               >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -131,7 +166,16 @@ const Login: React.FC = () => {
                 </svg>
                 Continue with Google
               </button>
-            </div>
+            )}
+
+            {/* Loading indicator */}
+            {!googleLoaded && (
+              <div className="text-center mt-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Loading Google Sign-In...
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Divider */}
