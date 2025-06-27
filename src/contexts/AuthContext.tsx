@@ -114,3 +114,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     signOut(auth);
     setUser(null);
+  };
+
+  const updateProfile = (updates: Partial<User>) => {
+    if (user) {
+      setUser({ ...user, ...updates });
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, signup, loginWithGoogle, logout, updateProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
