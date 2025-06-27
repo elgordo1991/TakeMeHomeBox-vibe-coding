@@ -7,10 +7,16 @@ const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({
-    username: user?.username || '',
-    bio: user?.bio || ''
-  });
+ const [editData, setEditData] = useState({ username: '', bio: '' });
+
+useEffect(() => {
+  if (user) {
+    setEditData({
+      username: user.username || '',
+      bio: user.bio || ''
+    });
+  }
+}, [user]);
 
   const handleSave = () => {
     updateProfile(editData);
