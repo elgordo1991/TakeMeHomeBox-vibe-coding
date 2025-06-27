@@ -17,53 +17,23 @@ const Login: React.FC = () => {
     bio: ''
   });
   const { login, signup, loginWithGoogle, user } = useAuth();
-  if (user === undefined || user === null) {
-  console.log("User not ready, skipping render");
-  return null;
-}
 
-const handleGoogleSignIn = async (response: any) => {
-  try {
-    const token = response?.credential;
-    const payload = token ? JSON.parse(atob(token.split('.')[1])) : null;
-
-    if (!payload || !payload.sub || !payload.email) {
-      console.error("Invalid Google payload:", payload);
-      return;
+  const handleGoogleSignIn = async (response: any) => {
+    try {
+      await loginWithGoogle(response.credential);
+    } catch (error) {
+      console.error("Google Sign-In callback error:", error);
     }
+  };
 
-    const googleUser = {
-      id: payload.sub,
-      username: payload.name || payload.email.split('@')[0],
-      email: payload.email,
-      bio: '',
-      rating: 5.0,
-      itemsGiven: 0,
-      itemsTaken: 0,
-      avatar: payload.picture || '',
-    };
+  useEffect(() => {
+    const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
 
-    console.log("Decoded Google User:", googleUser);
-    await loginWithGoogle(response.credential);
-  } catch (error) {
-    console.error("Google Sign-In callback error:", error);
-  }
-};
-
-useEffect(() => {
-  const clientId = "78873736304-ofdkecib83k3g2pp3q31075k3r2t65no.apps.googleusercontent.com";
-
-  if (!clientId) {
-    console.error("Google Client ID is missing!");
-    return;
-  }
-
-  try {
     const buttonEl = document.getElementById("google-signin-button");
 
     if (window.google && buttonEl) {
       window.google.accounts.id.initialize({
-        client_id: clientId, // ✅ NOT clientId.id!
+        client_id: clientId,
         callback: handleGoogleSignIn,
         auto_select: false,
         cancel_on_tap_outside: true,
@@ -76,10 +46,7 @@ useEffect(() => {
         text: "signin_with",
       });
     }
-  } catch (err) {
-    console.error("Google Sign-In init failed:", err);
-  }
-}, [isLogin]);
+  }, [isLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,14 +68,12 @@ useEffect(() => {
     });
   };
 
-  // ✅ Prevent rendering anything until user is set or confirmed null
-  if (user === undefined) return null;
+  if (user !== null) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-primary-50 to-earth-50 dark:from-gray-900 dark:to-gray-800">
       <div className="w-full max-w-md">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          {/* Logo */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="bg-primary-100 dark:bg-primary-900 p-3 rounded-full">
@@ -123,12 +88,10 @@ useEffect(() => {
             </p>
           </div>
 
-          {/* Google Sign-In Button */}
           <div className="mb-6">
             <div id="google-signin-button" className="w-full"></div>
           </div>
 
-          {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
@@ -141,7 +104,6 @@ useEffect(() => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Email
@@ -160,7 +122,6 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Password
@@ -179,7 +140,6 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Signup fields */}
             {!isLogin && (
               <>
                 <div>
@@ -219,7 +179,6 @@ useEffect(() => {
               </>
             )}
 
-            {/* Submit button */}
             <button
               type="submit"
               className="w-full bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-lg font-medium transition-colors duration-200 transform hover:scale-105"
@@ -228,7 +187,6 @@ useEffect(() => {
             </button>
           </form>
 
-          {/* Toggle */}
           <div className="mt-6 text-center">
             <button
               onClick={() => setIsLogin(!isLogin)}
