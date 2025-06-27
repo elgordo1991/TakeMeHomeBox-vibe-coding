@@ -71,17 +71,20 @@ const Login: React.FC = () => {
       }
     };
 
-    // Try to initialize immediately
-    
-    console.log('window.google:', window.google);
-    if (!window.google) {
+    // ✅ Load Google API manually if it's not already available
+if (!window.google || !window.google.accounts) {
   const script = document.createElement('script');
   script.src = 'https://accounts.google.com/gsi/client';
   script.async = true;
   script.defer = true;
-  document.body.appendChild(script);
-
+  script.onload = () => {
+    console.log("✅ Google script loaded manually");
     initializeGoogleSignIn();
+  };
+  document.body.appendChild(script);
+} else {
+  initializeGoogleSignIn(); // fallback if already loaded
+}
 
     // Set up multiple retry attempts
     const retryIntervals = [500, 1000, 2000, 3000];
