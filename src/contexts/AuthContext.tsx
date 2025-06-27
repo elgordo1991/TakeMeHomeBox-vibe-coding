@@ -1,4 +1,13 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { auth } from '../firebase';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  GoogleAuthProvider,
+  signInWithCredential,
+  onAuthStateChanged,
+} from 'firebase/auth';
 
 interface User {
   id: string;
@@ -33,77 +42,75 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
+  // Watch Firebase auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const profile: User = {
+          id: firebaseUser.uid,
+          username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+          email: firebaseUser.email || '',
+          bio: '',
+          rating: 5,
+          itemsGiven: 0,
+          itemsTaken: 0,
+          avatar: firebaseUser.photoURL || '',
+        };
+        setUser(profile);
+      } else {
+        setUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const login = async (email: string, password: string) => {
-    const mockUser: User = {
-      id: '1',
-      username: 'EcoWarrior',
-      email,
-      bio: 'Love sharing and reducing waste!',
-      rating: 4.8,
-      itemsGiven: 12,
-      itemsTaken: 8,
-    };
-    setUser(mockUser);
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    const firebaseUser = result.user;
+    setUser({
+      id: firebaseUser.uid,
+      username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+      email: firebaseUser.email!,
+      bio: '',
+      rating: 5,
+      itemsGiven: 0,
+      itemsTaken: 0,
+      avatar: firebaseUser.photoURL || '',
+    });
   };
 
   const signup = async (userData: Partial<User>) => {
-    const newUser: User = {
-      id: Date.now().toString(),
-      username: userData.username || 'NewUser',
-      email: userData.email || '',
+    const result = await createUserWithEmailAndPassword(auth, userData.email!, userData.password!);
+    const firebaseUser = result.user;
+    setUser({
+      id: firebaseUser.uid,
+      username: userData.username || firebaseUser.email!.split('@')[0],
+      email: firebaseUser.email!,
       bio: userData.bio || '',
-      rating: 5.0,
+      rating: 5,
       itemsGiven: 0,
       itemsTaken: 0,
-    };
-    setUser(newUser);
+      avatar: '',
+    });
   };
 
   const loginWithGoogle = async (credential: string) => {
-    try {
-      if (!credential) {
-        throw new Error("Missing Google credential");
-      }
+    const provider = GoogleAuthProvider.credential(credential);
+    const result = await signInWithCredential(auth, provider);
+    const firebaseUser = result.user;
 
-      const payload = JSON.parse(atob(credential.split('.')[1]));
-
-      if (!payload || !payload.sub || !payload.email) {
-        console.error("Invalid Google payload:", payload);
-        return;
-      }
-
-      const googleUser: User = {
-        id: payload.sub,
-        username: payload.name || payload.email.split('@')[0],
-        email: payload.email,
-        bio: '',
-        rating: 5.0,
-        itemsGiven: 0,
-        itemsTaken: 0,
-        avatar: payload.picture || '',
-      };
-
-      console.log("✅ Google user created:", googleUser);
-      setUser(googleUser);
-    } catch (error) {
-      console.error("❌ Error in loginWithGoogle:", error);
-      throw error;
-    }
+    setUser({
+      id: firebaseUser.uid,
+      username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+      email: firebaseUser.email!,
+      bio: '',
+      rating: 5,
+      itemsGiven: 0,
+      itemsTaken: 0,
+      avatar: firebaseUser.photoURL || '',
+    });
   };
 
   const logout = () => {
+    signOut(auth);
     setUser(null);
-  };
-
-  const updateProfile = (updates: Partial<User>) => {
-    if (user) {
-      setUser({ ...user, ...updates });
-    }
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, signup, loginWithGoogle, logout, updateProfile }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
