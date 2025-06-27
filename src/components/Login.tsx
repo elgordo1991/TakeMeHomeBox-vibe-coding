@@ -72,6 +72,7 @@ const Login: React.FC = () => {
     };
 
     // Try to initialize immediately
+    console.log('window.google:', window.google);
     initializeGoogleSignIn();
 
     // Set up multiple retry attempts
