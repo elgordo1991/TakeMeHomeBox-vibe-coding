@@ -16,13 +16,13 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 
-// Connect to Firebase Auth emulator in development (optional)
-if (import.meta.env.DEV && !auth.emulatorConfig) {
+// Only connect to Firebase Auth emulator if explicitly enabled
+if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV && !auth.emulatorConfig) {
   try {
     connectAuthEmulator(auth, "http://localhost:9099");
+    console.log("Connected to Firebase Auth emulator");
   } catch (error) {
-    // Emulator connection failed, continue with production auth
-    console.log("Firebase Auth emulator not available, using production");
+    console.warn("Failed to connect to Firebase Auth emulator:", error);
   }
 }
 
