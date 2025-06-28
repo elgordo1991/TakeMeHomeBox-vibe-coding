@@ -3,12 +3,12 @@ import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCML5ycWHofMQDzX1zkWkBqIifd5QOjqRw",
-  authDomain: "takemehomeboxvibe-coding.firebaseapp.com",
-  projectId: "takemehomeboxvibe-coding",
-  storageBucket: "takemehomeboxvibe-coding.firebasestorage.app",
-  messagingSenderId: "59867782303",
-  appId: "1:59867782303:web:ef4aa01eb4565e7e7156aa",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
