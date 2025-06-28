@@ -8,17 +8,33 @@ const Profile: React.FC = () => {
   const [editData, setEditData] = useState({ username: '', bio: '' });
   const [notifications, setNotifications] = useState(true);
 
+  // Mock user data when not authenticated
+  const mockUser = {
+    id: 'demo-user',
+    username: 'DemoUser',
+    email: 'demo@example.com',
+    bio: 'This is a demo profile. Sign up to create your own!',
+    rating: 4.2,
+    itemsGiven: 8,
+    itemsTaken: 12,
+    avatar: ''
+  };
+
+  const currentUser = user || mockUser;
+
   useEffect(() => {
-    if (user) {
-      setEditData({
-        username: user.username || '',
-        bio: user.bio || ''
-      });
-    }
-  }, [user]);
+    setEditData({
+      username: currentUser.username || '',
+      bio: currentUser.bio || ''
+    });
+  }, [currentUser]);
 
   const handleSave = () => {
-    updateProfile(editData);
+    if (user && updateProfile) {
+      updateProfile(editData);
+    } else {
+      alert('Sign up to save profile changes!');
+    }
     setIsEditing(false);
   };
 
@@ -30,15 +46,24 @@ const Profile: React.FC = () => {
   };
 
   const handleAvatarUpload = () => {
-    // Mock avatar upload - in real app would handle file upload
+    if (!user) {
+      alert('Sign up to upload an avatar!');
+      return;
+    }
     alert('Avatar upload feature coming soon!');
+  };
+
+  const handleLogout = () => {
+    if (user && logout) {
+      logout();
+    } else {
+      alert('You are not logged in!');
+    }
   };
 
   // Calculate user rank based on activity
   const calculateRank = () => {
-    if (!user) return { emoji: '🆕', title: 'Noob', level: 1 };
-    
-    const totalActivity = user.itemsGiven + user.itemsTaken;
+    const totalActivity = currentUser.itemsGiven + currentUser.itemsTaken;
     
     if (totalActivity >= 50) return { emoji: '💎', title: 'Treasure Hunter', level: 5 };
     if (totalActivity >= 25) return { emoji: '🪙', title: 'Giver', level: 4 };
@@ -56,10 +81,8 @@ const Profile: React.FC = () => {
     return '🗑️';
   };
 
-  if (!user) return null;
-
   const rank = calculateRank();
-  const ratingEmoji = getRatingEmoji(user.rating);
+  const ratingEmoji = getRatingEmoji(currentUser.rating);
 
   return (
     <div className="min-h-screen bg-deep-blue">
@@ -79,14 +102,23 @@ const Profile: React.FC = () => {
       </div>
 
       <div className="p-4 space-y-6">
+        {/* Demo Notice */}
+        {!user && (
+          <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
+            <p className="text-orange-400 text-sm text-center">
+              📦 Demo Mode - Sign up to save your profile and create listings!
+            </p>
+          </div>
+        )}
+
         {/* Profile Info Section */}
         <div className="card-dark p-6">
           <div className="flex items-center space-x-4 mb-6">
             <div className="relative">
               <div className="w-20 h-20 bg-dark-blue-light rounded-full flex items-center justify-center border border-silver/30 overflow-hidden">
-                {user.avatar ? (
+                {currentUser.avatar ? (
                   <img 
-                    src={user.avatar} 
+                    src={currentUser.avatar} 
                     alt="Profile" 
                     className="w-full h-full object-cover"
                   />
@@ -113,13 +145,13 @@ const Profile: React.FC = () => {
                 />
               ) : (
                 <h2 className="text-xl font-bold text-silver-light">
-                  {user.username}
+                  {currentUser.username}
                 </h2>
               )}
               <div className="flex items-center space-x-2 mt-2">
                 <div className="flex items-center space-x-1">
                   <span className="text-2xl">{ratingEmoji}</span>
-                  <span className="text-silver font-medium">{user.rating}</span>
+                  <span className="text-silver font-medium">{currentUser.rating}</span>
                 </div>
                 <span className="text-silver/60">•</span>
                 <div className="flex items-center space-x-1">
@@ -144,7 +176,7 @@ const Profile: React.FC = () => {
               />
             ) : (
               <p className="text-silver">
-                {user.bio || 'No bio added yet. Click edit to add one!'}
+                {currentUser.bio || 'No bio added yet. Click edit to add one!'}
               </p>
             )}
           </div>
@@ -162,8 +194,8 @@ const Profile: React.FC = () => {
                 onClick={() => {
                   setIsEditing(false);
                   setEditData({
-                    username: user.username || '',
-                    bio: user.bio || ''
+                    username: currentUser.username || '',
+                    bio: currentUser.bio || ''
                   });
                 }}
                 className="btn-secondary flex-1"
@@ -183,7 +215,7 @@ const Profile: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-silver-light">
-                  {user.itemsGiven}
+                  {currentUser.itemsGiven}
                 </p>
                 <p className="text-sm text-silver">Boxes Listed</p>
               </div>
@@ -197,7 +229,7 @@ const Profile: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-silver-light">
-                  {user.itemsTaken}
+                  {currentUser.itemsTaken}
                 </p>
                 <p className="text-sm text-silver">Boxes Found</p>
               </div>
@@ -215,7 +247,7 @@ const Profile: React.FC = () => {
               <p className="text-sm text-silver mb-1">Average Box Rating</p>
               <div className="flex items-center space-x-2">
                 <span className="text-3xl">{ratingEmoji}</span>
-                <span className="text-xl font-bold text-silver-light">{user.rating}</span>
+                <span className="text-xl font-bold text-silver-light">{currentUser.rating}</span>
                 <span className="text-sm text-silver/60">/ 5.0</span>
               </div>
             </div>
@@ -234,7 +266,7 @@ const Profile: React.FC = () => {
               <div className="text-right">
                 <p className="text-sm text-silver/60">Level {rank.level}</p>
                 <p className="text-xs text-silver/60">
-                  {user.itemsGiven + user.itemsTaken} total activities
+                  {currentUser.itemsGiven + currentUser.itemsTaken} total activities
                 </p>
               </div>
             </div>
@@ -250,12 +282,12 @@ const Profile: React.FC = () => {
                 <div 
                   className="bg-silver h-2 rounded-full transition-all duration-300"
                   style={{ 
-                    width: `${Math.min(100, ((user.itemsGiven + user.itemsTaken) % 10) * 10)}%` 
+                    width: `${Math.min(100, ((currentUser.itemsGiven + currentUser.itemsTaken) % 10) * 10)}%` 
                   }}
                 ></div>
               </div>
               <p className="text-xs text-silver/60 mt-1">
-                {10 - ((user.itemsGiven + user.itemsTaken) % 10)} more activities needed
+                {10 - ((currentUser.itemsGiven + currentUser.itemsTaken) % 10)} more activities needed
               </p>
             </div>
           )}
@@ -298,13 +330,13 @@ const Profile: React.FC = () => {
               </button>
             </div>
 
-            {/* Logout */}
+            {/* Login/Logout */}
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="w-full p-4 flex items-center space-x-3 hover:bg-red-500/10 transition-colors text-red-400 active:animate-press-down"
             >
               <LogOut className="w-5 h-5" />
-              <span>Sign Out</span>
+              <span>{user ? 'Sign Out' : 'Sign In'}</span>
             </button>
           </div>
         </div>
