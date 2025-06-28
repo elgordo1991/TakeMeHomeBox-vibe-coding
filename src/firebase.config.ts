@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCML5ycWHofMQDzX1zkWkBqIifd5QOjqRw",
@@ -13,10 +14,13 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Authentication and get a reference to the service
+// Firebase Auth
 export const auth = getAuth(app);
 
-// Only connect to Firebase Auth emulator if explicitly enabled
+// ✅ Firebase Firestore
+export const db = getFirestore(app); // ✅ <--- this is what you were missing
+
+// Optional: Auth emulator
 if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV && !auth.emulatorConfig) {
   try {
     connectAuthEmulator(auth, "http://localhost:9099");
