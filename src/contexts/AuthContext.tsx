@@ -59,8 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: firebaseUser.email || '',
             bio: '',
             rating: 5.0,
-            itemsGiven: 0,
-            itemsTaken: 0,
+            itemsGiven: Math.floor(Math.random() * 15), // Mock data for demo
+            itemsTaken: Math.floor(Math.random() * 20), // Mock data for demo
             avatar: firebaseUser.photoURL || '',
           };
           // Store new user data
@@ -92,8 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: firebaseUser.email!,
         bio: '',
         rating: 5.0,
-        itemsGiven: 0,
-        itemsTaken: 0,
+        itemsGiven: Math.floor(Math.random() * 15),
+        itemsTaken: Math.floor(Math.random() * 20),
         avatar: firebaseUser.photoURL || '',
       };
       localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
@@ -147,8 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: firebaseUser.email!,
         bio: '',
         rating: 5.0,
-        itemsGiven: 0,
-        itemsTaken: 0,
+        itemsGiven: Math.floor(Math.random() * 15),
+        itemsTaken: Math.floor(Math.random() * 20),
         avatar: firebaseUser.photoURL || '',
       };
       localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
