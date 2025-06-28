@@ -58,6 +58,7 @@ export default {
         'shimmer': 'shimmer 2s ease-in-out infinite alternate',
         'press-down': 'pressDown 0.1s ease-out',
         'glow-pulse': 'glowPulse 2s ease-in-out infinite',
+        'gradient-shimmer': 'gradientShimmer 8s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -84,6 +85,18 @@ export default {
           '0%, 100%': { boxShadow: '0 0 5px rgba(192, 192, 192, 0.5)' },
           '50%': { boxShadow: '0 0 20px rgba(192, 192, 192, 0.8)' },
         },
+        gradientShimmer: {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '25%': { backgroundPosition: '100% 50%' },
+          '50%': { backgroundPosition: '50% 100%' },
+          '75%': { backgroundPosition: '50% 0%' },
+        },
+      },
+      backgroundImage: {
+        'gradient-shimmer': 'linear-gradient(135deg, #0A0F2C 0%, #1E293B 25%, #0A0F2C 50%, #334155 75%, #0A0F2C 100%)',
+      },
+      backgroundSize: {
+        'shimmer': '400% 400%',
       },
       boxShadow: {
         'silver-glow': '0 0 10px rgba(192, 192, 192, 0.5)',

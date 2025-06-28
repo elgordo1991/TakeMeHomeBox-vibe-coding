@@ -12,6 +12,28 @@ body {
   color: #E5E5E5;
 }
 
+/* Gradient shimmer background */
+.bg-gradient-shimmer {
+  background: linear-gradient(135deg, #0A0F2C 0%, #1E293B 25%, #0A0F2C 50%, #334155 75%, #0A0F2C 100%);
+  background-size: 400% 400%;
+  animation: gradientShimmer 8s ease-in-out infinite;
+}
+
+@keyframes gradientShimmer {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 50% 100%;
+  }
+  75% {
+    background-position: 50% 0%;
+  }
+}
+
 /* Custom button styles */
 .btn-primary {
   @apply bg-dark-blue border border-silver text-silver-light font-semibold py-3 px-6 rounded-lg transition-all duration-200 hover:shadow-silver-glow active:animate-press-down active:shadow-silver-glow-lg;
@@ -39,9 +61,25 @@ body {
   animation: shimmer 3s ease-in-out infinite;
 }
 
-/* Logo animation */
+/* Enhanced logo animation with floating effect */
 .logo-animated {
-  animation: bounceGentle 2s infinite, glowPulse 3s infinite;
+  animation: bounceGentle 2s infinite, glowPulse 3s infinite, floatGentle 4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-3px) rotate(1deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-3px) rotate(-1deg);
+  }
 }
 
 /* Input styles */

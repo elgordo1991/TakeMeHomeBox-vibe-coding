@@ -44,7 +44,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-deep-blue relative">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-shimmer relative">
       {/* Skip button in corner */}
       <button
         onClick={skip}

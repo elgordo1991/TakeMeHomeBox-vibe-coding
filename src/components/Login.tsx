@@ -171,7 +171,7 @@ const Login: React.FC = () => {
                            import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'your_google_client_id_here';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-deep-blue">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-shimmer">
       <div className="w-full max-w-md">
         {/* Card with shimmer border */}
         <div className="card-dark p-8">
@@ -179,7 +179,7 @@ const Login: React.FC = () => {
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="logo-animated text-6xl">
-                📦💎
+                📦
               </div>
             </div>
             <h1 className="text-2xl font-bold text-silver-light">
