@@ -7,6 +7,7 @@ import {
   GoogleAuthProvider,
   signInWithCredential,
   onAuthStateChanged,
+  updateProfile as updateFirebaseProfile,
 } from 'firebase/auth';
 
 interface User {
@@ -45,16 +46,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        const profile: User = {
-          id: firebaseUser.uid,
-          username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
-          email: firebaseUser.email || '',
-          bio: '',
-          rating: 5,
-          itemsGiven: 0,
-          itemsTaken: 0,
-          avatar: firebaseUser.photoURL || '',
-        };
+        // Get stored user data from localStorage or create new profile
+        const storedUserData = localStorage.getItem(`user_${firebaseUser.uid}`);
+        
+        let profile: User;
+        if (storedUserData) {
+          profile = JSON.parse(storedUserData);
+        } else {
+          profile = {
+            id: firebaseUser.uid,
+            username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+            email: firebaseUser.email || '',
+            bio: '',
+            rating: 5.0,
+            itemsGiven: 0,
+            itemsTaken: 0,
+            avatar: firebaseUser.photoURL || '',
+          };
+          // Store new user data
+          localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
+        }
+        
         setUser(profile);
       } else {
         setUser(null);
@@ -66,47 +78,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     const result = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = result.user;
-    setUser({
-      id: firebaseUser.uid,
-      username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
-      email: firebaseUser.email!,
-      bio: '',
-      rating: 5,
-      itemsGiven: 0,
-      itemsTaken: 0,
-      avatar: firebaseUser.photoURL || '',
-    });
+    
+    // Get stored user data
+    const storedUserData = localStorage.getItem(`user_${firebaseUser.uid}`);
+    let profile: User;
+    
+    if (storedUserData) {
+      profile = JSON.parse(storedUserData);
+    } else {
+      profile = {
+        id: firebaseUser.uid,
+        username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+        email: firebaseUser.email!,
+        bio: '',
+        rating: 5.0,
+        itemsGiven: 0,
+        itemsTaken: 0,
+        avatar: firebaseUser.photoURL || '',
+      };
+      localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
+    }
+    
+    setUser(profile);
   };
 
   const signup = async (userData: Partial<User> & { password: string }) => {
     const result = await createUserWithEmailAndPassword(auth, userData.email!, userData.password);
     const firebaseUser = result.user;
-    setUser({
+    
+    // Update Firebase profile with username
+    if (userData.username) {
+      await updateFirebaseProfile(firebaseUser, {
+        displayName: userData.username
+      });
+    }
+    
+    const profile: User = {
       id: firebaseUser.uid,
       username: userData.username || firebaseUser.email!.split('@')[0],
       email: firebaseUser.email!,
       bio: userData.bio || '',
-      rating: 5,
+      rating: 5.0,
       itemsGiven: 0,
       itemsTaken: 0,
       avatar: '',
-    });
+    };
+    
+    // Store user data
+    localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
+    setUser(profile);
   };
 
   const loginWithGoogle = async (credential: string) => {
     const provider = GoogleAuthProvider.credential(credential);
     const result = await signInWithCredential(auth, provider);
     const firebaseUser = result.user;
-    setUser({
-      id: firebaseUser.uid,
-      username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
-      email: firebaseUser.email!,
-      bio: '',
-      rating: 5,
-      itemsGiven: 0,
-      itemsTaken: 0,
-      avatar: firebaseUser.photoURL || '',
-    });
+    
+    // Check if user data exists
+    const storedUserData = localStorage.getItem(`user_${firebaseUser.uid}`);
+    let profile: User;
+    
+    if (storedUserData) {
+      profile = JSON.parse(storedUserData);
+    } else {
+      profile = {
+        id: firebaseUser.uid,
+        username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+        email: firebaseUser.email!,
+        bio: '',
+        rating: 5.0,
+        itemsGiven: 0,
+        itemsTaken: 0,
+        avatar: firebaseUser.photoURL || '',
+      };
+      localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
+    }
+    
+    setUser(profile);
   };
 
   const logout = () => {
@@ -116,7 +164,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = (updates: Partial<User>) => {
     if (user) {
-      setUser({ ...user, ...updates });
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      // Update stored data
+      localStorage.setItem(`user_${user.id}`, JSON.stringify(updatedUser));
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Users, ArrowRight, Gift, Search } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -10,28 +10,24 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   const steps = [
     {
-      icon: <div className="text-6xl logo-animated">📦💎</div>,
-      title: "Welcome to TakeMeHomeBox",
-      description: "Connect with your community to share and discover free items left outside homes.",
-      animation: "animate-bounce-gentle"
+      emoji: "📦",
+      title: "Find treasures left outside homes",
+      subtitle: "Discover amazing free items in your neighborhood through our interactive map and community sharing.",
     },
     {
-      icon: <Gift className="w-16 h-16 text-silver" />,
-      title: "Give Back",
-      description: "Share items you no longer need by placing them in boxes outside your home.",
-      animation: "animate-fade-in"
+      emoji: "🎁",
+      title: "Share what you no longer need",
+      subtitle: "Give back to your community by placing items you don't use in boxes outside your home.",
     },
     {
-      icon: <Search className="w-16 h-16 text-silver" />,
-      title: "Discover Treasures",
-      description: "Find amazing free items in your neighborhood through our interactive map.",
-      animation: "animate-slide-up"
+      emoji: "🧡",
+      title: "Connect with your local community",
+      subtitle: "Build meaningful relationships with neighbors while creating a sustainable sharing economy.",
     },
     {
-      icon: <Heart className="w-16 h-16 text-silver" />,
-      title: "Build Community",
-      description: "Rate experiences, leave comments, and help create a sustainable sharing economy.",
-      animation: "animate-fade-in"
+      emoji: "🏆",
+      title: "Track your reputation and earn badges",
+      subtitle: "Rate experiences, leave comments, and build your community reputation through positive interactions.",
     }
   ];
 
@@ -48,11 +44,19 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-deep-blue">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-deep-blue relative">
+      {/* Skip button in corner */}
+      <button
+        onClick={skip}
+        className="absolute top-6 right-6 text-silver/60 hover:text-silver transition-colors text-sm"
+      >
+        Skip
+      </button>
+
       <div className="w-full max-w-md">
         {/* Progress indicator */}
-        <div className="flex justify-center mb-8">
-          <div className="flex space-x-2">
+        <div className="flex justify-center mb-12">
+          <div className="flex space-x-3">
             {steps.map((_, index) => (
               <div
                 key={index}
@@ -66,47 +70,40 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="text-center animate-fade-in">
-          <div className={`flex justify-center mb-6 ${steps[currentStep].animation}`}>
-            {steps[currentStep].icon}
+        {/* Card with shimmer border */}
+        <div className="card-dark p-8 text-center">
+          {/* Emoji icon */}
+          <div className="text-8xl mb-6 logo-animated">
+            {steps[currentStep].emoji}
           </div>
           
-          <h1 className="text-2xl font-bold text-silver-light mb-4">
+          {/* Bold title */}
+          <h1 className="text-2xl font-bold text-silver-light mb-4 leading-tight">
             {steps[currentStep].title}
           </h1>
           
-          <p className="text-silver text-lg leading-relaxed mb-8">
-            {steps[currentStep].description}
+          {/* Short subtitle */}
+          <p className="text-silver text-base leading-relaxed mb-8">
+            {steps[currentStep].subtitle}
           </p>
-        </div>
 
-        {/* Navigation */}
-        <div className="flex justify-between items-center">
-          <button
-            onClick={skip}
-            className="text-silver/60 hover:text-silver transition-colors"
-          >
-            Skip
-          </button>
-          
+          {/* Next button with press animation */}
           <button
             onClick={nextStep}
-            className="btn-primary flex items-center space-x-2"
+            className="btn-primary w-full flex items-center justify-center space-x-3"
           >
-            <span>{currentStep === steps.length - 1 ? 'Get Started' : 'Next'}</span>
-            <ArrowRight className="w-4 h-4" />
+            <span className="text-lg font-semibold">
+              {currentStep === steps.length - 1 ? 'Get Started' : 'Next'}
+            </span>
+            <ArrowRight className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Community illustration */}
-        <div className="mt-12 flex justify-center">
-          <div className="flex items-center space-x-4 text-silver/60">
-            <Users className="w-8 h-8" />
-            <div className="text-sm">
-              Join thousands sharing in their communities
-            </div>
-          </div>
+        {/* Step indicator text */}
+        <div className="text-center mt-6">
+          <span className="text-silver/60 text-sm">
+            {currentStep + 1} of {steps.length}
+          </span>
         </div>
       </div>
     </div>

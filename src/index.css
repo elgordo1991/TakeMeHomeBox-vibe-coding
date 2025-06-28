@@ -53,3 +53,27 @@ body {
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Google Sign-In button styling override */
+#google-signin-button iframe {
+  border-radius: 8px !important;
+  border: 1px solid #C0C0C0 !important;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1E293B;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C0C0C0;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #E5E5E5;
+}
