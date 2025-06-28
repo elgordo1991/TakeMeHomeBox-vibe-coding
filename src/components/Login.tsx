@@ -36,7 +36,7 @@ const Login: React.FC = () => {
 
   // ✅ Initialize Google Sign-In button with better error handling
   useEffect(() => {
-    const clientId = "59867782303-8grsdr15et50r2ko8r8fue6ddbo64ut5.apps.googleusercontent.com";
+   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     
     const initializeGoogleSignIn = () => {
       const buttonEl = document.getElementById("google-signin-button");
