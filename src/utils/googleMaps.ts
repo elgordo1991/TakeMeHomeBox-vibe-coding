@@ -24,13 +24,13 @@ export const loadGoogleMapsScript = (): Promise<void> => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     
     // More specific check for missing or placeholder API key
-    if (!apiKey || apiKey.trim() === '' || apiKey === 'your_google_maps_api_key_here') {
+    if (!apiKey || apiKey.trim() === '' || apiKey.trim() === 'your_google_maps_api_key_here') {
       reject(new Error('Google Maps API key not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your .env file.'));
       return;
     }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey.trim()}&libraries=places`;
     script.async = true;
     script.defer = true;
     
