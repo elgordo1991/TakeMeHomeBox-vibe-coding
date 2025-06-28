@@ -3,6 +3,7 @@ import { Camera, MapPin, Calendar, Tag, Upload, X, Locate, AlertCircle, CheckCir
 import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
 import { createListing, BoxListingInput } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import MultiImageUpload from './MultiImageUpload';
 
 declare global {
   interface Window {
@@ -151,21 +152,10 @@ const AddListing: React.FC = () => {
     });
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const mockUrls = files.map((_, index) => 
-      `https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400&t=${Date.now()}-${index}`
-    );
+  const handleImagesChanged = (images: string[]) => {
     setFormData({
       ...formData,
-      images: [...formData.images, ...mockUrls].slice(0, 5)
-    });
-  };
-
-  const removeImage = (index: number) => {
-    setFormData({
-      ...formData,
-      images: formData.images.filter((_, i) => i !== index)
+      images
     });
   };
 
@@ -355,45 +345,12 @@ const AddListing: React.FC = () => {
         {/* Images */}
         <div className="card-dark p-4">
           <h3 className="font-semibold text-silver-light mb-3">Photos *</h3>
-          
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            {formData.images.map((image, index) => (
-              <div key={index} className="relative">
-                <img
-                  src={image}
-                  alt={`Upload ${index + 1}`}
-                  className="w-full h-24 object-cover rounded-lg"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeImage(index)}
-                  disabled={submitting}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors disabled:opacity-50"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-            
-            {formData.images.length < 5 && (
-              <label className="border-2 border-dashed border-silver/30 rounded-lg h-24 flex flex-col items-center justify-center cursor-pointer hover:border-silver transition-colors">
-                <Camera className="w-6 h-6 text-silver/60 mb-1" />
-                <span className="text-xs text-silver/60">Add Photo</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageUpload}
-                  disabled={submitting}
-                  className="hidden"
-                />
-              </label>
-            )}
-          </div>
-          
-          <p className="text-sm text-silver/60">
-            Add up to 5 photos. First photo will be the main image.
-          </p>
+          <MultiImageUpload
+            images={formData.images}
+            onImagesChanged={handleImagesChanged}
+            maxImages={5}
+            folder="listings"
+          />
         </div>
 
         {/* Title */}

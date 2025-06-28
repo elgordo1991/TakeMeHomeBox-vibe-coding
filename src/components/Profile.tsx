@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Bell, BellOff, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, updateListingStatus, deleteListing, BoxListing } from '../services/firestore';
+import ImageUpload from './ImageUpload';
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -50,8 +51,16 @@ const Profile: React.FC = () => {
     });
   };
 
-  const handleAvatarUpload = () => {
-    alert('Avatar upload feature coming soon!');
+  const handleAvatarUpload = (imageUrl: string) => {
+    if (user && updateProfile) {
+      updateProfile({ avatar: imageUrl });
+    }
+  };
+
+  const handleAvatarRemove = () => {
+    if (user && updateProfile) {
+      updateProfile({ avatar: '' });
+    }
   };
 
   const handleLogout = async () => {
@@ -166,23 +175,16 @@ const Profile: React.FC = () => {
         <div className="card-dark p-6">
           <div className="flex items-center space-x-4 mb-6">
             <div className="relative">
-              <div className="w-20 h-20 bg-dark-blue-light rounded-full flex items-center justify-center border border-silver/30 overflow-hidden">
-                {user.avatar ? (
-                  <img 
-                    src={user.avatar} 
-                    alt="Profile" 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User className="w-10 h-10 text-silver" />
-                )}
-              </div>
-              <button 
-                onClick={handleAvatarUpload}
-                className="absolute -bottom-1 -right-1 bg-dark-blue border border-silver text-silver rounded-full p-1.5 hover:bg-dark-blue-light transition-colors active:animate-press-down"
-              >
-                <Camera className="w-3 h-3" />
-              </button>
+              <ImageUpload
+                currentImage={user.avatar}
+                onImageUploaded={handleAvatarUpload}
+                onImageRemoved={user.avatar ? handleAvatarRemove : undefined}
+                size="lg"
+                shape="circle"
+                placeholder="Add Photo"
+                folder="avatars"
+                className="flex-shrink-0"
+              />
             </div>
             <div className="flex-1">
               {isEditing ? (
