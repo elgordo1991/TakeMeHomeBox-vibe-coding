@@ -17,11 +17,15 @@ const app = initializeApp(firebaseConfig);
 // Firebase Auth
 export const auth = getAuth(app);
 
-// ✅ Firebase Firestore
-export const db = getFirestore(app); // ✅ <--- this is what you were missing
+// Firebase Firestore
+export const db = getFirestore(app);
 
-// Optional: Auth emulator
-if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV && !auth.emulatorConfig) {
+// Optional: Connect to Auth emulator locally
+if (
+  import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' &&
+  import.meta.env.DEV &&
+  !auth.emulatorConfig
+) {
   try {
     connectAuthEmulator(auth, "http://localhost:9099");
     console.log("Connected to Firebase Auth emulator");
