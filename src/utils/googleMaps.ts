@@ -24,7 +24,7 @@ export const loadGoogleMapsScript = (): Promise<void> => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     
     // More specific check for missing or placeholder API key
-    if (!apiKey || apiKey === 'your_google_maps_api_key_here' || apiKey.trim() === '') {
+    if (!apiKey || apiKey.trim() === '' || apiKey === 'your_google_maps_api_key_here') {
       reject(new Error('Google Maps API key not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your .env file.'));
       return;
     }
