@@ -288,6 +288,50 @@ const Profile: React.FC = () => {
           </div>
         </div>
 
+        {/* Rank & Progress Section */}
+        <div className="card-dark p-6">
+          <h3 className="font-semibold text-silver-light mb-4">Community Rank</h3>
+          
+          {/* Current Rank Badge */}
+          <div className="p-4 bg-gradient-to-r from-dark-blue-light to-dark-blue rounded-lg border border-silver/50 shadow-silver-glow mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-silver mb-1">Current Rank</p>
+                <div className="flex items-center space-x-2">
+                  <span className="text-3xl">{rank.emoji}</span>
+                  <span className="text-lg font-bold text-silver-light">{rank.title}</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-silver/60">Level {rank.level}</p>
+                <p className="text-xs text-silver/60">
+                  {user.itemsGiven + user.itemsTaken} total activities
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress to next rank */}
+          {rank.level < 5 && (
+            <div className="p-3 bg-dark-blue rounded-lg border border-silver/30">
+              <p className="text-sm text-silver mb-2">
+                Progress to next rank
+              </p>
+              <div className="w-full bg-dark-blue-light rounded-full h-2">
+                <div 
+                  className="bg-silver h-2 rounded-full transition-all duration-300"
+                  style={{ 
+                    width: `${Math.min(100, ((user.itemsGiven + user.itemsTaken) % 10) * 10)}%` 
+                  }}
+                ></div>
+              </div>
+              <p className="text-xs text-silver/60 mt-1">
+                {10 - ((user.itemsGiven + user.itemsTaken) % 10)} more activities needed
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* My Listings Section */}
         <div className="card-dark overflow-hidden">
           <div className="p-4 border-b border-silver/30">
