@@ -10,11 +10,24 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>TakeMeHomeBox - Community Sharing</title>
 
-    <!-- ✅ Google Sign-In -->
+    <!-- Google Sign-In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-   <script
-  async
-  defer
-  src="https://maps.googleapis.com/maps/api/js?key=%VITE_GOOGLE_MAPS_API_KEY%&libraries=places"
-></script>
+    <!-- Google Maps API - Only load if API key is available -->
+    <script>
+      // Check if we have a Google Maps API key before loading
+      const mapsApiKey = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY;
+      if (mapsApiKey && mapsApiKey !== 'your_google_maps_api_key_here') {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${mapsApiKey}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

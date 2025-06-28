@@ -30,6 +30,7 @@ const MapView: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showRating, setShowRating] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
+  const [mapsLoaded, setMapsLoaded] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -80,12 +81,41 @@ const MapView: React.FC = () => {
     }
   ];
 
+  // Check if Google Maps is available
+  useEffect(() => {
+    const checkGoogleMaps = () => {
+      if (window.google && window.google.maps) {
+        setMapsLoaded(true);
+        return true;
+      }
+      return false;
+    };
+
+    // Check immediately
+    if (checkGoogleMaps()) return;
+
+    // Check periodically for Google Maps to load
+    const interval = setInterval(() => {
+      if (checkGoogleMaps()) {
+        clearInterval(interval);
+      }
+    }, 500);
+
+    // Clean up after 10 seconds
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+    }, 10000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
+
   // Initialize Google Maps
   useEffect(() => {
     if (
-      typeof window !== "undefined" &&
-      window.google &&
-      window.google.maps &&
+      mapsLoaded &&
       mapRef.current &&
       !googleMapRef.current
     ) {
@@ -102,7 +132,7 @@ const MapView: React.FC = () => {
 
       addMarkersToMap();
     }
-  }, [userLocation, isDark]);
+  }, [mapsLoaded, userLocation, isDark]);
 
   // Get user's current location
   useEffect(() => {
@@ -338,13 +368,16 @@ const MapView: React.FC = () => {
       {/* Google Maps */}
       <div className="h-64 relative">
         <div ref={mapRef} className="w-full h-full" />
-        {!window.google && (
+        {!mapsLoaded && (
           <div className="absolute inset-0 bg-dark-blue flex items-center justify-center">
             <div className="text-center">
               <MapPin className="w-12 h-12 text-silver mx-auto mb-2" />
-              <p className="text-silver">Loading Google Maps...</p>
+              <p className="text-silver">Loading Map...</p>
               <p className="text-sm text-silver/60 mt-1">
-                Please add your Google Maps API key
+                {import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 
+                  'Initializing Google Maps...' : 
+                  'Google Maps API key not configured'
+                }
               </p>
             </div>
           </div>
