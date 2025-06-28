@@ -1,42 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { db } from '../firebase.config';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate } from 'react-router-dom';
 
 const AddListing: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [location, setLocation] = useState({ lat: '', lng: '' });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const mapRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<any>(null);
 
   const navigate = useNavigate();
+  const storage = getStorage();
+
+  const handleMapClick = (e: google.maps.MapMouseEvent) => {
+    if (!e.latLng || !window.google || !mapRef.current) return;
+
+    const lat = e.latLng.lat();
+    const lng = e.latLng.lng();
+    setLocation({ lat, lng });
+
+    const map = markerRef.current?.getMap() || new window.google.maps.Map(mapRef.current);
+    if (markerRef.current) markerRef.current.setMap(null);
+
+    markerRef.current = new window.google.maps.Marker({
+      position: { lat, lng },
+      map,
+      title: "Selected Location",
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!location || !imageFile) return alert("Please select a location and image.");
+
+    setSubmitting(true);
 
     try {
+      // Upload image to Firebase Storage
+      const imageRef = ref(storage, `listing-images/${Date.now()}_${imageFile.name}`);
+      await uploadBytes(imageRef, imageFile);
+      const imageUrl = await getDownloadURL(imageRef);
+
+      // Save listing to Firestore
       await addDoc(collection(db, 'listings'), {
         title,
         description,
         image: imageUrl,
-        location: {
-          lat: parseFloat(location.lat),
-          lng: parseFloat(location.lng),
-        },
+        location,
         createdAt: serverTimestamp(),
       });
 
       alert('✅ Listing added!');
-      navigate('/'); // or wherever you want to go after
+      navigate('/');
     } catch (error) {
-      console.error("Error adding listing:", error);
+      console.error("Error submitting listing:", error);
       alert('❌ Failed to add listing.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-deep-blue p-4 text-silver-light">
-      <h2 className="text-xl font-bold mb-4">Add a New Box</h2>
+      <h2 className="text-xl font-bold mb-6">Add a New Box</h2>
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
         <input
           type="text"
@@ -54,34 +85,28 @@ const AddListing: React.FC = () => {
           onChange={(e) => setDescription(e.target.value)}
           required
         />
-        <input
-          type="text"
-          placeholder="Image URL"
-          className="input-dark w-full"
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-        />
-        <div className="flex space-x-2">
-          <input
-            type="number"
-            step="any"
-            placeholder="Latitude"
-            className="input-dark w-1/2"
-            value={location.lat}
-            onChange={(e) => setLocation({ ...location, lat: e.target.value })}
-            required
-          />
-          <input
-            type="number"
-            step="any"
-            placeholder="Longitude"
-            className="input-dark w-1/2"
-            value={location.lng}
-            onChange={(e) => setLocation({ ...location, lng: e.target.value })}
-            required
-          />
+
+        <div>
+          <label className="block mb-1 text-sm">📍 Tap on the map to choose location:</label>
+          <div ref={mapRef} id="addListingMap" className="w-full h-64 rounded-lg border border-silver/30" />
         </div>
-        <button type="submit" className="btn-primary w-full">Post Box</button>
+
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="input-dark w-full"
+          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+          required
+        />
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="btn-primary w-full"
+        >
+          {submitting ? "Posting..." : "Post Box"}
+        </button>
       </form>
     </div>
   );
