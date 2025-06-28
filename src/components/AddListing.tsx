@@ -1,152 +1,488 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { db } from '../firebase.config';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useNavigate } from 'react-router-dom';
+import { Camera, MapPin, Calendar, Tag, Upload, X, Locate, AlertCircle } from 'lucide-react';
+import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 const AddListing: React.FC = () => {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    images: [] as string[],
+    location: '',
+    coordinates: null as { lat: number; lng: number } | null,
+    isSpotted: false
+  });
 
   const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  const navigate = useNavigate();
-  const storage = getStorage();
+  const [showMap, setShowMap] = useState(false);
+  const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [mapsError, setMapsError] = useState<string | null>(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
-  // ✅ Set a marker when map is clicked
-  const handleMapClick = (e: google.maps.MapMouseEvent) => {
-    if (!e.latLng || !window.google || !mapRef.current) return;
+  const categories = [
+    'Books', 'Clothes', 'Toys', 'Kitchen', 'Electronics', 'Furniture', 'Garden', 'Sports', 'Other'
+  ];
 
-    const lat = e.latLng.lat();
-    const lng = e.latLng.lng();
-    setLocation({ lat, lng });
+  // Load Google Maps
+  useEffect(() => {
+    const initializeMaps = async () => {
+      try {
+        await loadGoogleMapsScript();
+        setMapsLoaded(true);
+        setMapsError(null);
+      } catch (error: any) {
+        console.error('Failed to load Google Maps:', error);
+        setMapsError(error.message || 'Failed to load Google Maps');
+        setMapsLoaded(false);
+      }
+    };
 
-    const map = markerRef.current?.getMap() || new window.google.maps.Map(mapRef.current);
-    if (markerRef.current) markerRef.current.setMap(null);
+    if (showMap) {
+      initializeMaps();
+    }
+  }, [showMap]);
 
-    markerRef.current = new window.google.maps.Marker({
-      position: { lat, lng },
-      map,
-      title: "Box Location",
+  // Initialize Google Maps for location selection
+  useEffect(() => {
+    if (showMap && mapsLoaded && mapRef.current && !googleMapRef.current) {
+      const defaultCenter = { lat: 51.505, lng: -0.09 };
+      
+      try {
+        googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+          zoom: 15,
+          center: formData.coordinates || defaultCenter,
+          styles: getDarkMapStyles(),
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
+
+        // Add click listener to set location
+        googleMapRef.current.addListener('click', (event: any) => {
+          const lat = event.latLng.lat();
+          const lng = event.latLng.lng();
+          
+          setFormData(prev => ({
+            ...prev,
+            coordinates: { lat, lng }
+          }));
+
+          // Update marker position
+          if (markerRef.current) {
+            markerRef.current.setPosition({ lat, lng });
+          } else {
+            markerRef.current = new window.google.maps.Marker({
+              position: { lat, lng },
+              map: googleMapRef.current,
+              title: 'Box Location',
+              draggable: true,
+            });
+
+            markerRef.current.addListener('dragend', (event: any) => {
+              const newLat = event.latLng.lat();
+              const newLng = event.latLng.lng();
+              setFormData(prev => ({
+                ...prev,
+                coordinates: { lat: newLat, lng: newLng }
+              }));
+              reverseGeocode(newLat, newLng);
+            });
+          }
+
+          reverseGeocode(lat, lng);
+        });
+
+        // Get user's current location
+        getCurrentUserLocation();
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        setMapsError('Failed to initialize map');
+      }
+    }
+  }, [showMap, mapsLoaded]);
+
+  const reverseGeocode = (lat: number, lng: number) => {
+    if (!window.google || !window.google.maps) return;
+    
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results: any, status: any) => {
+      if (status === 'OK' && results[0]) {
+        setFormData(prev => ({
+          ...prev,
+          location: results[0].formatted_address
+        }));
+      }
     });
   };
 
-  // ✅ Initialize the Google Map
-  useEffect(() => {
-    if (window.google && mapRef.current) {
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: 51.505, lng: -0.09 },
-        zoom: 14,
-        styles: getDarkMapStyles(),
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      });
-
-      map.addListener('click', handleMapClick);
-    }
-  }, []);
-
-  // ✅ Submit listing to Firestore and Storage
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!location || !imageFile) {
-      alert("Please select a location and image.");
-      return;
-    }
-
-    setSubmitting(true);
-
+  const getCurrentUserLocation = async () => {
+    setLoadingLocation(true);
     try {
-      const imageRef = ref(storage, `listing-images/${Date.now()}_${imageFile.name}`);
-      await uploadBytes(imageRef, imageFile);
-      const imageUrl = await getDownloadURL(imageRef);
-
-      await addDoc(collection(db, 'listings'), {
-        title,
-        description,
-        image: imageUrl,
-        location,
-        createdAt: serverTimestamp(),
-      });
-
-      alert('✅ Listing posted!');
-      navigate('/');
+      const location = await getCurrentLocation();
+      
+      if (googleMapRef.current) {
+        googleMapRef.current.setCenter(location);
+      }
     } catch (error) {
-      console.error("Error posting listing:", error);
-      alert('❌ Failed to post listing.');
+      console.error('Error getting location:', error);
     } finally {
-      setSubmitting(false);
+      setLoadingLocation(false);
     }
   };
 
-  // ✅ Dark map style for visual consistency
-  const getDarkMapStyles = () => [
-    { elementType: 'geometry', stylers: [{ color: '#0A0F2C' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0A0F2C' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#C0C0C0' }] },
-    {
-      featureType: 'road',
-      elementType: 'geometry',
-      stylers: [{ color: '#334155' }],
-    },
-    {
-      featureType: 'water',
-      elementType: 'geometry',
-      stylers: [{ color: '#1E293B' }],
-    },
-  ];
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const mockUrls = files.map((_, index) => 
+      `https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400&t=${Date.now()}-${index}`
+    );
+    setFormData({
+      ...formData,
+      images: [...formData.images, ...mockUrls].slice(0, 5)
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setFormData({
+      ...formData,
+      images: formData.images.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleLocationClick = () => {
+    setShowMap(true);
+  };
+
+  const handleMapClose = () => {
+    setShowMap(false);
+  };
+
+  const handleCurrentLocationClick = async () => {
+    setLoadingLocation(true);
+    try {
+      const location = await getCurrentLocation();
+      
+      setFormData(prev => ({
+        ...prev,
+        coordinates: location
+      }));
+
+      if (googleMapRef.current) {
+        googleMapRef.current.setCenter(location);
+        
+        if (markerRef.current) {
+          markerRef.current.setPosition(location);
+        } else {
+          markerRef.current = new window.google.maps.Marker({
+            position: location,
+            map: googleMapRef.current,
+            title: 'Box Location',
+            draggable: true,
+          });
+        }
+
+        reverseGeocode(location.lat, location.lng);
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      alert('Unable to get your location. Please check your location permissions.');
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.coordinates) {
+      alert('Please set a location for your box');
+      return;
+    }
+    
+    console.log('Listing submitted:', formData);
+    alert('Listing created successfully!');
+    setFormData({
+      title: '',
+      description: '',
+      category: '',
+      images: [],
+      location: '',
+      coordinates: null,
+      isSpotted: false
+    });
+    setShowMap(false);
+  };
 
   return (
-    <div className="min-h-screen bg-deep-blue p-4 text-silver-light">
-      <h2 className="text-xl font-bold mb-6">📦 Add a New Box</h2>
-      <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
-        <input
-          type="text"
-          placeholder="Title"
-          className="input-dark w-full"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-        />
+    <div className="min-h-screen bg-deep-blue">
+      {/* Header */}
+      <div className="card-dark border-b border-silver/30">
+        <div className="p-4">
+          <h1 className="text-xl font-bold text-silver-light">
+            {formData.isSpotted ? 'Report a Spotted Box' : 'List a TakeMeHomeBox'}
+          </h1>
+        </div>
+      </div>
 
-        <textarea
-          placeholder="Description"
-          className="input-dark w-full"
-          rows={3}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-        />
-
-        <div>
-          <label className="block mb-1 text-sm">📍 Tap on the map to select location:</label>
-          <div ref={mapRef} className="w-full h-64 rounded-lg border border-silver/30" />
+      <form onSubmit={handleSubmit} className="p-4 space-y-6">
+        {/* Listing Type Toggle */}
+        <div className="card-dark p-4">
+          <h3 className="font-semibold text-silver-light mb-3">Listing Type</h3>
+          <div className="flex space-x-4">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="isSpotted"
+                checked={!formData.isSpotted}
+                onChange={() => setFormData({ ...formData, isSpotted: false })}
+                className="mr-2 text-silver accent-silver"
+              />
+              <span className="text-silver">My Box</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="isSpotted"
+                checked={formData.isSpotted}
+                onChange={() => setFormData({ ...formData, isSpotted: true })}
+                className="mr-2 text-silver accent-silver"
+              />
+              <span className="text-silver">Spotted Box</span>
+            </label>
+          </div>
         </div>
 
-        <div>
-          <label className="block mb-1 text-sm">📸 Upload a photo:</label>
+        {/* Images */}
+        <div className="card-dark p-4">
+          <h3 className="font-semibold text-silver-light mb-3">Photos</h3>
+          
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {formData.images.map((image, index) => (
+              <div key={index} className="relative">
+                <img
+                  src={image}
+                  alt={`Upload ${index + 1}`}
+                  className="w-full h-24 object-cover rounded-lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(index)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            
+            {formData.images.length < 5 && (
+              <label className="border-2 border-dashed border-silver/30 rounded-lg h-24 flex flex-col items-center justify-center cursor-pointer hover:border-silver transition-colors">
+                <Camera className="w-6 h-6 text-silver/60 mb-1" />
+                <span className="text-xs text-silver/60">Add Photo</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+          
+          <p className="text-sm text-silver/60">
+            Add up to 5 photos. First photo will be the main image.
+          </p>
+        </div>
+
+        {/* Title */}
+        <div className="card-dark p-4">
+          <label className="block text-sm font-medium text-silver mb-2">
+            Title
+          </label>
           <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="w-full text-sm text-silver bg-dark-blue-light p-2 rounded-lg"
-            onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleInputChange}
+            placeholder="e.g., Kitchen essentials, Children's books"
+            className="input-dark w-full px-4 py-3 rounded-lg"
             required
           />
         </div>
 
+        {/* Description */}
+        <div className="card-dark p-4">
+          <label className="block text-sm font-medium text-silver mb-2">
+            Description
+          </label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            rows={4}
+            placeholder="Describe what's in the box..."
+            className="input-dark w-full px-4 py-3 rounded-lg resize-none"
+            required
+          />
+        </div>
+
+        {/* Category */}
+        <div className="card-dark p-4">
+          <label className="block text-sm font-medium text-silver mb-2">
+            Category
+          </label>
+          <div className="relative">
+            <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleInputChange}
+              className="input-dark w-full pl-10 pr-4 py-3 rounded-lg"
+              required
+            >
+              <option value="">Select a category</option>
+              {categories.map((category) => (
+                <option key={category} value={category.toLowerCase()}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Location */}
+        <div className="card-dark p-4">
+          <label className="block text-sm font-medium text-silver mb-2">
+            Location
+          </label>
+          <div className="space-y-3">
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleInputChange}
+                placeholder="Tap to set location on map"
+                onClick={handleLocationClick}
+                className="input-dark w-full pl-10 pr-4 py-3 rounded-lg cursor-pointer"
+                readOnly
+                required
+              />
+            </div>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={handleLocationClick}
+                className="btn-secondary flex-1"
+              >
+                Set on Map
+              </button>
+              <button
+                type="button"
+                onClick={handleCurrentLocationClick}
+                disabled={loadingLocation}
+                className="btn-secondary flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingLocation ? (
+                  <div className="w-4 h-4 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                ) : (
+                  <Locate className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+          </div>
+          <p className="text-sm text-silver/60 mt-2">
+            Precise location helps others find your box easily
+          </p>
+        </div>
+
+        {/* Auto-expire info */}
+        {!formData.isSpotted && (
+          <div className="bg-dark-blue-light rounded-xl p-4 border border-silver/30">
+            <div className="flex items-start space-x-3">
+              <Calendar className="w-5 h-5 text-silver mt-0.5" />
+              <div>
+                <h4 className="font-medium text-silver-light">
+                  Auto-expiry in 48 hours
+                </h4>
+                <p className="text-sm text-silver">
+                  Your listing will automatically expire in 48 hours. You can mark it as taken earlier if needed.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Submit button */}
         <button
           type="submit"
-          disabled={submitting}
           className="btn-primary w-full"
         >
-          {submitting ? "Posting..." : "Post Box"}
+          {formData.isSpotted ? 'Report Spotted Box' : 'List My Box'}
         </button>
       </form>
+
+      {/* Map Modal */}
+      {showMap && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="card-dark rounded-2xl w-full max-w-md h-96 overflow-hidden">
+            <div className="p-4 border-b border-silver/30 flex items-center justify-between">
+              <h3 className="font-semibold text-silver-light">
+                Set Box Location
+              </h3>
+              <button
+                onClick={handleMapClose}
+                className="text-silver/60 hover:text-silver"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="h-64">
+              {mapsError ? (
+                <div className="w-full h-full bg-dark-blue flex items-center justify-center">
+                  <div className="text-center p-4">
+                    <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                    <p className="text-silver text-sm">{mapsError}</p>
+                  </div>
+                </div>
+              ) : !mapsLoaded ? (
+                <div className="w-full h-full bg-dark-blue flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-6 h-6 border-2 border-silver/30 border-t-silver rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-silver text-sm">Loading Google Maps...</p>
+                  </div>
+                </div>
+              ) : (
+                <div ref={mapRef} className="w-full h-full" />
+              )}
+            </div>
+            <div className="p-4">
+              <button
+                onClick={handleMapClose}
+                className="btn-primary w-full"
+                disabled={!formData.coordinates}
+              >
+                {formData.coordinates ? 'Confirm Location' : 'Select Location First'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
