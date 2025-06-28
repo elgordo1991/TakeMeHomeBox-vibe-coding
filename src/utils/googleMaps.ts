@@ -23,8 +23,9 @@ export const loadGoogleMapsScript = (): Promise<void> => {
 
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     
-    if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
-      reject(new Error('Google Maps API key not configured'));
+    // More specific check for missing or placeholder API key
+    if (!apiKey || apiKey === 'your_google_maps_api_key_here' || apiKey.trim() === '') {
+      reject(new Error('Google Maps API key not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your .env file.'));
       return;
     }
 
@@ -42,7 +43,7 @@ export const loadGoogleMapsScript = (): Promise<void> => {
     };
     
     script.onerror = () => {
-      reject(new Error('Failed to load Google Maps script'));
+      reject(new Error('Failed to load Google Maps script. Please check your API key and network connection.'));
     };
     
     document.head.appendChild(script);
