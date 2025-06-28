@@ -1,21 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
-
-interface BoxListing {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  distance: string;
-  timePosted: string;
-  rating: number;
-  image: string;
-  location: { lat: number; lng: number };
-  isSpotted?: boolean;
-  userRating?: number;
-}
+import { 
+  subscribeToListings, 
+  addRatingToListing, 
+  updateListingStatus,
+  calculateDistance,
+  BoxListing 
+} from '../services/firestore';
 
 declare global {
   interface Window {
@@ -23,17 +17,25 @@ declare global {
   }
 }
 
+interface BoxListingWithDistance extends BoxListing {
+  distance?: string;
+  timePosted?: string;
+}
+
 const MapView: React.FC = () => {
   const { isDark } = useTheme();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedBox, setSelectedBox] = useState<BoxListing | null>(null);
+  const [selectedBox, setSelectedBox] = useState<BoxListingWithDistance | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showRating, setShowRating] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [mapsError, setMapsError] = useState<string | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [listings, setListings] = useState<BoxListingWithDistance[]>([]);
+  const [loadingListings, setLoadingListings] = useState(true);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -46,43 +48,10 @@ const MapView: React.FC = () => {
     { id: 'toys', name: 'Toys' },
     { id: 'kitchen', name: 'Kitchen' },
     { id: 'electronics', name: 'Electronics' },
-  ];
-
-  const mockBoxes: BoxListing[] = [
-    {
-      id: '1',
-      title: 'Kitchen Essentials',
-      description: 'Mugs, plates, old kettle, and some utensils',
-      category: 'kitchen',
-      distance: '0.3 km',
-      timePosted: '2 hours ago',
-      rating: 4.8,
-      image: 'https://images.pexels.com/photos/4099354/pexels-photo-4099354.jpeg?auto=compress&cs=tinysrgb&w=400',
-      location: { lat: 51.505, lng: -0.09 }
-    },
-    {
-      id: '2',
-      title: 'Children\'s Books',
-      description: 'Collection of picture books and early readers',
-      category: 'books',
-      distance: '0.7 km',
-      timePosted: '4 hours ago',
-      rating: 5.0,
-      image: 'https://images.pexels.com/photos/1907785/pexels-photo-1907785.jpeg?auto=compress&cs=tinysrgb&w=400',
-      location: { lat: 51.507, lng: -0.087 }
-    },
-    {
-      id: '3',
-      title: 'Winter Clothes',
-      description: 'Coats, sweaters, and scarves - various sizes',
-      category: 'clothes',
-      distance: '1.2 km',
-      timePosted: '6 hours ago',
-      rating: 4.5,
-      image: 'https://images.pexels.com/photos/996329/pexels-photo-996329.jpeg?auto=compress&cs=tinysrgb&w=400',
-      location: { lat: 51.503, lng: -0.085 },
-      isSpotted: true
-    }
+    { id: 'furniture', name: 'Furniture' },
+    { id: 'garden', name: 'Garden' },
+    { id: 'sports', name: 'Sports' },
+    { id: 'other', name: 'Other' },
   ];
 
   // Load Google Maps
@@ -101,6 +70,68 @@ const MapView: React.FC = () => {
 
     initializeMaps();
   }, []);
+
+  // Subscribe to listings from Firestore
+  useEffect(() => {
+    setLoadingListings(true);
+    
+    const unsubscribe = subscribeToListings(
+      (firestoreListings) => {
+        // Process listings to add distance and time info
+        const processedListings = firestoreListings.map(listing => {
+          let distance = 'Unknown';
+          let timePosted = 'Unknown';
+          
+          // Calculate distance if user location is available
+          if (userLocation) {
+            const distanceKm = calculateDistance(
+              userLocation.lat,
+              userLocation.lng,
+              listing.location.coordinates.latitude,
+              listing.location.coordinates.longitude
+            );
+            distance = distanceKm < 1 
+              ? `${Math.round(distanceKm * 1000)}m`
+              : `${distanceKm.toFixed(1)}km`;
+          }
+          
+          // Calculate time posted
+          if (listing.createdAt) {
+            const now = new Date();
+            const created = listing.createdAt.toDate();
+            const diffMs = now.getTime() - created.getTime();
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffHours / 24);
+            
+            if (diffDays > 0) {
+              timePosted = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            } else if (diffHours > 0) {
+              timePosted = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            } else {
+              const diffMinutes = Math.floor(diffMs / (1000 * 60));
+              timePosted = `${Math.max(1, diffMinutes)} minute${diffMinutes > 1 ? 's' : ''} ago`;
+            }
+          }
+          
+          return {
+            ...listing,
+            distance,
+            timePosted
+          };
+        });
+        
+        setListings(processedListings);
+        setLoadingListings(false);
+      },
+      selectedCategory
+    );
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [selectedCategory, userLocation]);
 
   // Get user's current location
   useEffect(() => {
@@ -155,6 +186,13 @@ const MapView: React.FC = () => {
     }
   }, [mapsLoaded, userLocation]);
 
+  // Update markers when listings change
+  useEffect(() => {
+    if (googleMapRef.current) {
+      addMarkersToMap();
+    }
+  }, [listings]);
+
   const addMarkersToMap = () => {
     if (!googleMapRef.current || !window.google) return;
 
@@ -181,9 +219,12 @@ const MapView: React.FC = () => {
     }
 
     // Add box markers
-    mockBoxes.forEach((box) => {
+    listings.forEach((box) => {
       const marker = new window.google.maps.Marker({
-        position: box.location,
+        position: {
+          lat: box.location.coordinates.latitude,
+          lng: box.location.coordinates.longitude
+        },
         map: googleMapRef.current,
         title: box.title,
         icon: {
@@ -306,17 +347,51 @@ const MapView: React.FC = () => {
     );
   };
 
-  const handleRating = (rating: number) => {
-    if (selectedBox) {
-      const updatedBox = { ...selectedBox, userRating: rating };
-      setSelectedBox(updatedBox);
-      setShowRating(false);
-      const ratingLabel = getRatingEmoji(rating);
-      alert(`Thanks for rating! You gave ${ratingLabel} (${rating}/5).`);
+  const handleRating = async (rating: number) => {
+    if (selectedBox && user) {
+      try {
+        await addRatingToListing(selectedBox.id!, user.id, rating);
+        
+        // Update local state
+        const updatedBox = { ...selectedBox };
+        const existingRatingIndex = updatedBox.ratings.findIndex(r => r.userId === user.id);
+        
+        if (existingRatingIndex >= 0) {
+          updatedBox.ratings[existingRatingIndex] = { userId: user.id, rating };
+        } else {
+          updatedBox.ratings.push({ userId: user.id, rating });
+        }
+        
+        // Recalculate average rating
+        const averageRating = updatedBox.ratings.reduce((sum, r) => sum + r.rating, 0) / updatedBox.ratings.length;
+        updatedBox.rating = Math.round(averageRating * 10) / 10;
+        
+        setSelectedBox(updatedBox);
+        setShowRating(false);
+        
+        const ratingLabel = getRatingEmoji(rating);
+        alert(`Thanks for rating! You gave ${ratingLabel} (${rating}/5).`);
+      } catch (error) {
+        console.error('Error adding rating:', error);
+        alert('Failed to add rating. Please try again.');
+      }
     }
   };
 
-  const filteredBoxes = mockBoxes.filter(box => {
+  const handleMarkAsTaken = async () => {
+    if (selectedBox && user) {
+      try {
+        await updateListingStatus(selectedBox.id!, 'taken');
+        setSelectedBox(null);
+        alert('Box marked as taken!');
+      } catch (error) {
+        console.error('Error marking as taken:', error);
+        alert('Failed to mark as taken. Please try again.');
+      }
+    }
+  };
+
+  const filteredBoxes = listings.filter(box => {
     const matchesSearch = box.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          box.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || box.category === selectedCategory;
@@ -331,6 +406,9 @@ const MapView: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold text-silver-light">
               Nearby Boxes
+              {loadingListings && (
+                <span className="ml-2 text-sm text-silver/60">(Loading...)</span>
+              )}
             </h1>
             <button
               onClick={centerOnUserLocation}
@@ -403,52 +481,70 @@ const MapView: React.FC = () => {
 
       {/* Listings */}
       <div className="p-4 space-y-4">
-        {filteredBoxes.map((box) => (
-          <div
-            key={box.id}
-            onClick={() => setSelectedBox(box)}
-            className="card-dark overflow-hidden hover:shadow-silver-glow transition-shadow cursor-pointer active:animate-press-down"
-          >
-            <div className="flex">
-              <img
-                src={box.image}
-                alt={box.title}
-                className="w-24 h-24 object-cover"
-              />
-              <div className="flex-1 p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-silver-light">
-                    {box.title}
-                    {box.isSpotted && (
-                      <span className="ml-2 px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full border border-orange-500/30">
-                        Spotted
+        {loadingListings ? (
+          <div className="text-center py-8">
+            <div className="w-8 h-8 border-2 border-silver/30 border-t-silver rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-silver">Loading listings...</p>
+          </div>
+        ) : filteredBoxes.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-6xl mb-4">📦</div>
+            <h3 className="text-lg font-semibold text-silver-light mb-2">No boxes found</h3>
+            <p className="text-silver">
+              {searchQuery || selectedCategory !== 'all' 
+                ? 'Try adjusting your search or category filter'
+                : 'Be the first to add a box to your community!'
+              }
+            </p>
+          </div>
+        ) : (
+          filteredBoxes.map((box) => (
+            <div
+              key={box.id}
+              onClick={() => setSelectedBox(box)}
+              className="card-dark overflow-hidden hover:shadow-silver-glow transition-shadow cursor-pointer active:animate-press-down"
+            >
+              <div className="flex">
+                <img
+                  src={box.images[0] || 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400'}
+                  alt={box.title}
+                  className="w-24 h-24 object-cover"
+                />
+                <div className="flex-1 p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-silver-light">
+                      {box.title}
+                      {box.isSpotted && (
+                        <span className="ml-2 px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full border border-orange-500/30">
+                          Spotted
+                        </span>
+                      )}
+                    </h3>
+                    <div className="flex items-center space-x-1">
+                      {renderBoxRating(box.rating || 0)}
+                      <span className="text-sm text-silver ml-1">
+                        {box.rating ? box.rating.toFixed(1) : '0.0'}
                       </span>
-                    )}
-                  </h3>
-                  <div className="flex items-center space-x-1">
-                    {renderBoxRating(box.rating)}
-                    <span className="text-sm text-silver ml-1">
-                      {box.rating}
+                    </div>
+                  </div>
+                  <p className="text-silver text-sm mb-2">
+                    {box.description}
+                  </p>
+                  <div className="flex items-center justify-between text-sm text-silver/60">
+                    <span className="flex items-center">
+                      <MapPin className="w-4 h-4 mr-1" />
+                      {box.distance}
+                    </span>
+                    <span className="flex items-center">
+                      <Clock className="w-4 h-4 mr-1" />
+                      {box.timePosted}
                     </span>
                   </div>
                 </div>
-                <p className="text-silver text-sm mb-2">
-                  {box.description}
-                </p>
-                <div className="flex items-center justify-between text-sm text-silver/60">
-                  <span className="flex items-center">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    {box.distance}
-                  </span>
-                  <span className="flex items-center">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {box.timePosted}
-                  </span>
-                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Box Detail Modal */}
@@ -473,7 +569,7 @@ const MapView: React.FC = () => {
               </div>
               
               <img
-                src={selectedBox.image}
+                src={selectedBox.images[0] || 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400'}
                 alt={selectedBox.title}
                 className="w-full h-48 object-cover rounded-lg mb-4"
               />
@@ -494,15 +590,21 @@ const MapView: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  {renderBoxRating(selectedBox.rating)}
+                  {renderBoxRating(selectedBox.rating || 0)}
                   <span className="text-sm font-medium text-silver-light ml-1">
-                    {selectedBox.rating}
+                    {selectedBox.rating ? selectedBox.rating.toFixed(1) : '0.0'}
                   </span>
                 </div>
               </div>
 
+              {/* User info */}
+              <div className="bg-dark-blue-light rounded-lg p-3 mb-4 border border-silver/30">
+                <p className="text-sm text-silver/60">Listed by</p>
+                <p className="text-silver font-medium">{selectedBox.username}</p>
+              </div>
+
               {/* Rating Section */}
-              {showRating ? (
+              {showRating && user ? (
                 <div className="bg-dark-blue-light rounded-xl p-4 mb-4 border border-silver/30">
                   <h3 className="text-center font-semibold text-silver-light mb-3">
                     Rate this box
@@ -510,7 +612,10 @@ const MapView: React.FC = () => {
                   <p className="text-center text-sm text-silver mb-4">
                     How would you rate the quality and accuracy of this listing?
                   </p>
-                  {renderInteractiveRating(selectedBox.userRating || 0, handleRating)}
+                  {renderInteractiveRating(
+                    selectedBox.ratings.find(r => r.userId === user.id)?.rating || 0, 
+                    handleRating
+                  )}
                   <div className="flex justify-center space-x-2 mt-4">
                     <button
                       onClick={() => setShowRating(false)}
@@ -522,24 +627,39 @@ const MapView: React.FC = () => {
                 </div>
               ) : (
                 <div className="flex space-x-3 mb-4">
-                  <button 
-                    onClick={() => setShowRating(true)}
-                    className="btn-primary flex-1 flex items-center justify-center space-x-2"
-                  >
-                    <span>{getRatingEmoji(5)}</span>
-                    <span>Rate Box</span>
-                  </button>
-                  <button className="btn-secondary flex-1 flex items-center justify-center space-x-2">
-                    <Camera className="w-4 h-4" />
-                    <span>Report</span>
-                  </button>
+                  {user && (
+                    <button 
+                      onClick={() => setShowRating(true)}
+                      className="btn-primary flex-1 flex items-center justify-center space-x-2"
+                    >
+                      <span>{getRatingEmoji(5)}</span>
+                      <span>Rate Box</span>
+                    </button>
+                  )}
+                  {user && user.id !== selectedBox.userId && (
+                    <button 
+                      onClick={handleMarkAsTaken}
+                      className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Mark Taken</span>
+                    </button>
+                  )}
                 </div>
               )}
               
-              <button className="btn-primary w-full flex items-center justify-center space-x-2">
-                <MessageCircle className="w-4 h-4" />
-                <span>Leave Comment</span>
-              </button>
+              {user && (
+                <button className="btn-primary w-full flex items-center justify-center space-x-2">
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Leave Comment</span>
+                </button>
+              )}
+
+              {!user && (
+                <div className="text-center p-4 bg-dark-blue-light rounded-lg border border-silver/30">
+                  <p className="text-silver text-sm">Sign in to rate boxes and leave comments</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

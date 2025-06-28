@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Bell, BellOff } from 'lucide-react';
+import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Bell, BellOff, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getUserListings, updateListingStatus, deleteListing, BoxListing } from '../services/firestore';
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({ username: '', bio: '' });
   const [notifications, setNotifications] = useState(true);
+  const [userListings, setUserListings] = useState<BoxListing[]>([]);
+  const [loadingListings, setLoadingListings] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'taken' | 'expired'>('active');
 
   useEffect(() => {
     if (user) {
@@ -14,8 +18,23 @@ const Profile: React.FC = () => {
         username: user.username || '',
         bio: user.bio || ''
       });
+      loadUserListings();
     }
   }, [user]);
+
+  const loadUserListings = async () => {
+    if (!user) return;
+    
+    setLoadingListings(true);
+    try {
+      const listings = await getUserListings(user.id);
+      setUserListings(listings);
+    } catch (error) {
+      console.error('Error loading user listings:', error);
+    } finally {
+      setLoadingListings(false);
+    }
+  };
 
   const handleSave = () => {
     if (user && updateProfile) {
@@ -43,6 +62,30 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handleMarkAsTaken = async (listingId: string) => {
+    try {
+      await updateListingStatus(listingId, 'taken');
+      await loadUserListings(); // Refresh listings
+      alert('Listing marked as taken!');
+    } catch (error) {
+      console.error('Error marking as taken:', error);
+      alert('Failed to mark as taken. Please try again.');
+    }
+  };
+
+  const handleDeleteListing = async (listingId: string) => {
+    if (confirm('Are you sure you want to delete this listing? This action cannot be undone.')) {
+      try {
+        await deleteListing(listingId);
+        await loadUserListings(); // Refresh listings
+        alert('Listing deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting listing:', error);
+        alert('Failed to delete listing. Please try again.');
+      }
+    }
+  };
+
   // Calculate user rank based on activity
   const calculateRank = () => {
     if (!user) return { emoji: '🆕', title: 'Noob', level: 1 };
@@ -65,6 +108,25 @@ const Profile: React.FC = () => {
     return '🗑️'; // Trash quality
   };
 
+  const getTimePosted = (createdAt: any) => {
+    if (!createdAt) return 'Unknown';
+    
+    const now = new Date();
+    const created = createdAt.toDate();
+    const diffMs = now.getTime() - created.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else {
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      return `${Math.max(1, diffMinutes)} minute${diffMinutes > 1 ? 's' : ''} ago`;
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-deep-blue flex items-center justify-center p-6">
@@ -79,6 +141,8 @@ const Profile: React.FC = () => {
 
   const rank = calculateRank();
   const ratingEmoji = getRatingEmoji(user.rating);
+
+  const filteredListings = userListings.filter(listing => listing.status === activeTab);
 
   return (
     <div className="min-h-screen bg-deep-blue">
@@ -202,9 +266,9 @@ const Profile: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-silver-light">
-                  {user.itemsGiven}
+                  {userListings.length}
                 </p>
-                <p className="text-sm text-silver">Boxes Listed</p>
+                <p className="text-sm text-silver">Total Listings</p>
               </div>
             </div>
           </div>
@@ -221,6 +285,114 @@ const Profile: React.FC = () => {
                 <p className="text-sm text-silver">Boxes Found</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* My Listings Section */}
+        <div className="card-dark overflow-hidden">
+          <div className="p-4 border-b border-silver/30">
+            <h3 className="font-semibold text-silver-light flex items-center">
+              <Package className="w-5 h-5 mr-2" />
+              My Listings
+            </h3>
+          </div>
+
+          {/* Listing Status Tabs */}
+          <div className="flex border-b border-silver/30">
+            {[
+              { key: 'active', label: 'Active', count: userListings.filter(l => l.status === 'active').length },
+              { key: 'taken', label: 'Taken', count: userListings.filter(l => l.status === 'taken').length },
+              { key: 'expired', label: 'Expired', count: userListings.filter(l => l.status === 'expired').length },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                className={`flex-1 p-3 text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'text-silver-light bg-dark-blue-light border-b-2 border-silver'
+                    : 'text-silver/60 hover:text-silver'
+                }`}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </div>
+
+          {/* Listings Content */}
+          <div className="max-h-96 overflow-y-auto">
+            {loadingListings ? (
+              <div className="p-6 text-center">
+                <div className="w-6 h-6 border-2 border-silver/30 border-t-silver rounded-full animate-spin mx-auto mb-2"></div>
+                <p className="text-silver text-sm">Loading listings...</p>
+              </div>
+            ) : filteredListings.length === 0 ? (
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-2">📦</div>
+                <p className="text-silver text-sm">
+                  {activeTab === 'active' ? 'No active listings' : 
+                   activeTab === 'taken' ? 'No taken listings' : 'No expired listings'}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-silver/30">
+                {filteredListings.map((listing) => (
+                  <div key={listing.id} className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <img
+                        src={listing.images[0] || 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400'}
+                        alt={listing.title}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-medium text-silver-light truncate">
+                              {listing.title}
+                              {listing.isSpotted && (
+                                <span className="ml-2 px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full border border-orange-500/30">
+                                  Spotted
+                                </span>
+                              )}
+                            </h4>
+                            <p className="text-sm text-silver/60 mt-1">
+                              {listing.description.length > 50 
+                                ? `${listing.description.substring(0, 50)}...`
+                                : listing.description
+                              }
+                            </p>
+                            <div className="flex items-center space-x-4 mt-2 text-xs text-silver/60">
+                              <span>{getTimePosted(listing.createdAt)}</span>
+                              <span>Rating: {listing.rating ? listing.rating.toFixed(1) : '0.0'}</span>
+                              <span>{listing.ratings.length} reviews</span>
+                            </div>
+                          </div>
+                          
+                          {/* Action buttons */}
+                          {activeTab === 'active' && (
+                            <div className="flex space-x-2 ml-2">
+                              <button
+                                onClick={() => handleMarkAsTaken(listing.id!)}
+                                className="btn-secondary text-xs px-2 py-1"
+                                title="Mark as taken"
+                              >
+                                Taken
+                              </button>
+                              <button
+                                onClick={() => handleDeleteListing(listing.id!)}
+                                className="text-red-400 hover:text-red-300 p-1"
+                                title="Delete listing"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
