@@ -7,12 +7,12 @@ import MainApp from './components/MainApp';
 import './index.css';
 
 function App() {
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
-    if (hasSeenOnboarding) {
-      setShowOnboarding(false);
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true);
     }
   }, []);
 

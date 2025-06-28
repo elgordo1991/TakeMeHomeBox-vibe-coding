@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, User, MessageCircle, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, MessageCircle, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 declare global {
@@ -14,6 +14,8 @@ const Login: React.FC = () => {
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -31,9 +33,14 @@ const Login: React.FC = () => {
   // Handle Google sign-in safely
   const handleGoogleSignIn = async (response: any) => {
     try {
+      setLoading(true);
+      setError('');
       await loginWithGoogle(response.credential);
-    } catch (error) {
-      console.error("Google Sign-In callback error:", error);
+    } catch (error: any) {
+      console.error("Google Sign-In error:", error);
+      setError(error.message || 'Google sign-in failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,7 +70,7 @@ const Login: React.FC = () => {
             theme: "filled_blue",
             size: "large",
             width: "100%",
-            text: "signin_with",
+            text: isLogin ? "signin_with" : "signup_with",
             shape: "rectangular",
           });
 
@@ -98,9 +105,9 @@ const Login: React.FC = () => {
     return () => {
       timeouts.forEach(timeout => clearTimeout(timeout));
     };
-  }, [googleLoaded]);
+  }, [googleLoaded, isLogin]);
 
-  // Check username availability (basic validation)
+  // Check username availability
   const checkUsernameAvailability = async (username: string) => {
     if (username.length < 3) {
       setUsernameAvailable(false);
@@ -121,24 +128,79 @@ const Login: React.FC = () => {
     }, 500);
   };
 
+  // Validate form data
+  const validateForm = () => {
+    if (!formData.email) {
+      setError('Email is required');
+      return false;
+    }
+    
+    if (!formData.email.includes('@')) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    
+    if (!formData.password) {
+      setError('Password is required');
+      return false;
+    }
+    
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return false;
+    }
+    
+    if (!isLogin) {
+      if (!formData.username) {
+        setError('Username is required');
+        return false;
+      }
+      
+      if (!usernameAvailable) {
+        setError('Please choose a valid username');
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
   // Handle email-based login/signup
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     
-    if (!isLogin && !usernameAvailable) {
-      alert('Please choose a valid username');
+    if (!validateForm()) {
       return;
     }
 
     try {
+      setLoading(true);
+      
       if (isLogin) {
         await login(formData.email, formData.password);
       } else {
         await signup(formData);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Auth error:', error);
-      alert('Authentication failed. Please try again.');
+      
+      // Handle specific Firebase errors
+      if (error.code === 'auth/user-not-found') {
+        setError('No account found with this email. Please sign up first.');
+      } else if (error.code === 'auth/wrong-password') {
+        setError('Incorrect password. Please try again.');
+      } else if (error.code === 'auth/email-already-in-use') {
+        setError('An account with this email already exists. Please sign in instead.');
+      } else if (error.code === 'auth/weak-password') {
+        setError('Password is too weak. Please choose a stronger password.');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else {
+        setError(error.message || 'Authentication failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -148,6 +210,11 @@ const Login: React.FC = () => {
       ...formData,
       [name]: value
     });
+
+    // Clear error when user starts typing
+    if (error) {
+      setError('');
+    }
 
     // Check username availability when typing
     if (name === 'username' && !isLogin) {
@@ -163,8 +230,15 @@ const Login: React.FC = () => {
     if (window.google && window.google.accounts && window.google.accounts.id) {
       window.google.accounts.id.prompt();
     } else {
-      alert('Google Sign-In is not available. Please use email login or try refreshing the page.');
+      setError('Google Sign-In is not available. Please use email login or try refreshing the page.');
     }
+  };
+
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    setFormData({ email: '', password: '', username: '', bio: '' });
+    setUsernameAvailable(null);
+    setError('');
   };
 
   const hasGoogleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID && 
@@ -190,6 +264,14 @@ const Login: React.FC = () => {
             </p>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+
           {/* Google Sign-In Button */}
           {hasGoogleClientId && (
             <div className="mb-6">
@@ -199,7 +281,8 @@ const Login: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGoogleFallback}
-                  className="btn-primary w-full flex items-center justify-center space-x-3"
+                  disabled={loading}
+                  className="btn-primary w-full flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -250,6 +333,7 @@ const Login: React.FC = () => {
                   className="input-dark w-full pl-10 pr-4 py-3 rounded-lg"
                   placeholder="your@email.com"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -278,6 +362,7 @@ const Login: React.FC = () => {
                     }`}
                     placeholder="Choose a unique username"
                     required
+                    disabled={loading}
                   />
                   {/* Username validation indicator */}
                   {formData.username.length >= 3 && (
@@ -320,15 +405,23 @@ const Login: React.FC = () => {
                   className="input-dark w-full pl-10 pr-10 py-3 rounded-lg"
                   placeholder="••••••••"
                   required
+                  disabled={loading}
+                  minLength={6}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-silver/60 hover:text-silver"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-silver/60 hover:text-silver disabled:cursor-not-allowed"
+                  disabled={loading}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              {!isLogin && (
+                <p className="text-xs text-silver/60 mt-1">
+                  Password must be at least 6 characters long
+                </p>
+              )}
             </div>
 
             {/* Bio (only for signup) */}
@@ -346,30 +439,35 @@ const Login: React.FC = () => {
                     rows={3}
                     className="input-dark w-full pl-10 pr-4 py-3 rounded-lg resize-none"
                     placeholder="Tell the community about yourself..."
+                    disabled={loading}
                   />
                 </div>
               </div>
             )}
 
-            {/* Submit Button with bounce animation */}
+            {/* Submit Button */}
             <button
               type="submit"
-              className="btn-primary w-full text-lg font-semibold py-4"
-              disabled={!isLogin && !usernameAvailable}
+              className="btn-primary w-full text-lg font-semibold py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              disabled={loading || (!isLogin && !usernameAvailable)}
             >
-              {isLogin ? 'Sign In' : 'Create Account'}
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                  <span>{isLogin ? 'Signing In...' : 'Creating Account...'}</span>
+                </>
+              ) : (
+                <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
+              )}
             </button>
           </form>
 
           {/* Toggle Sign-in/Sign-up */}
           <div className="mt-6 text-center">
             <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setFormData({ email: '', password: '', username: '', bio: '' });
-                setUsernameAvailable(null);
-              }}
-              className="text-silver hover:text-silver-light font-medium transition-colors"
+              onClick={toggleMode}
+              className="text-silver hover:text-silver-light font-medium transition-colors disabled:cursor-not-allowed"
+              disabled={loading}
             >
               {isLogin 
                 ? "No account? Sign up!" 

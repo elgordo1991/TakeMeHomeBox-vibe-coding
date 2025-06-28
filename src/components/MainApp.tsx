@@ -11,10 +11,10 @@ const MainApp: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('map');
 
-  // Temporarily disable auth requirement - remove this condition to re-enable
-  // if (!user) {
-  //   return <Login />;
-  // }
+  // Require authentication for full app access
+  if (!user) {
+    return <Login />;
+  }
 
   return (
     <div className="min-h-screen bg-deep-blue">
@@ -24,7 +24,6 @@ const MainApp: React.FC = () => {
           <Route path="/map" element={<MapView />} />
           <Route path="/add" element={<AddListing />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/login" element={<Login />} />
         </Routes>
       </div>
       <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />

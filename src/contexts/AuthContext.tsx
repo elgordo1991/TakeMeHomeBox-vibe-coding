@@ -8,6 +8,7 @@ import {
   signInWithCredential,
   onAuthStateChanged,
   updateProfile as updateFirebaseProfile,
+  User as FirebaseUser,
 } from 'firebase/auth';
 
 interface User {
@@ -19,14 +20,17 @@ interface User {
   itemsGiven: number;
   itemsTaken: number;
   avatar?: string;
+  createdAt: string;
+  lastActive: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (userData: Partial<User> & { password: string }) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => void;
 }
 
@@ -42,137 +46,198 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Create user profile from Firebase user
+  const createUserProfile = (firebaseUser: FirebaseUser, additionalData?: Partial<User>): User => {
+    const now = new Date().toISOString();
+    
+    return {
+      id: firebaseUser.uid,
+      username: additionalData?.username || firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+      email: firebaseUser.email || '',
+      bio: additionalData?.bio || '',
+      rating: 5.0,
+      itemsGiven: 0,
+      itemsTaken: 0,
+      avatar: firebaseUser.photoURL || '',
+      createdAt: now,
+      lastActive: now,
+      ...additionalData,
+    };
+  };
+
+  // Save user profile to localStorage
+  const saveUserProfile = (userProfile: User) => {
+    localStorage.setItem(`user_${userProfile.id}`, JSON.stringify(userProfile));
+    localStorage.setItem('currentUser', JSON.stringify(userProfile));
+  };
+
+  // Load user profile from localStorage
+  const loadUserProfile = (userId: string): User | null => {
+    try {
+      const storedData = localStorage.getItem(`user_${userId}`);
+      return storedData ? JSON.parse(storedData) : null;
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      return null;
+    }
+  };
+
+  // Update last active timestamp
+  const updateLastActive = (userProfile: User) => {
+    const updatedProfile = {
+      ...userProfile,
+      lastActive: new Date().toISOString(),
+    };
+    saveUserProfile(updatedProfile);
+    return updatedProfile;
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Get stored user data from localStorage or create new profile
-        const storedUserData = localStorage.getItem(`user_${firebaseUser.uid}`);
+        // Load existing profile or create new one
+        let profile = loadUserProfile(firebaseUser.uid);
         
-        let profile: User;
-        if (storedUserData) {
-          profile = JSON.parse(storedUserData);
-        } else {
+        if (profile) {
+          // Update existing profile with latest Firebase data
           profile = {
-            id: firebaseUser.uid,
-            username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
-            email: firebaseUser.email || '',
-            bio: '',
-            rating: 5.0,
-            itemsGiven: Math.floor(Math.random() * 15), // Mock data for demo
-            itemsTaken: Math.floor(Math.random() * 20), // Mock data for demo
-            avatar: firebaseUser.photoURL || '',
+            ...profile,
+            email: firebaseUser.email || profile.email,
+            avatar: firebaseUser.photoURL || profile.avatar,
           };
-          // Store new user data
-          localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
+          profile = updateLastActive(profile);
+        } else {
+          // Create new profile
+          profile = createUserProfile(firebaseUser);
+          saveUserProfile(profile);
         }
         
         setUser(profile);
       } else {
         setUser(null);
+        localStorage.removeItem('currentUser');
       }
+      setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    const firebaseUser = result.user;
-    
-    // Get stored user data
-    const storedUserData = localStorage.getItem(`user_${firebaseUser.uid}`);
-    let profile: User;
-    
-    if (storedUserData) {
-      profile = JSON.parse(storedUserData);
-    } else {
-      profile = {
-        id: firebaseUser.uid,
-        username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
-        email: firebaseUser.email!,
-        bio: '',
-        rating: 5.0,
-        itemsGiven: Math.floor(Math.random() * 15),
-        itemsTaken: Math.floor(Math.random() * 20),
-        avatar: firebaseUser.photoURL || '',
-      };
-      localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = result.user;
+      
+      // Load or create user profile
+      let profile = loadUserProfile(firebaseUser.uid);
+      
+      if (profile) {
+        profile = updateLastActive(profile);
+      } else {
+        profile = createUserProfile(firebaseUser);
+        saveUserProfile(profile);
+      }
+      
+      setUser(profile);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw error;
     }
-    
-    setUser(profile);
   };
 
   const signup = async (userData: Partial<User> & { password: string }) => {
-    const result = await createUserWithEmailAndPassword(auth, userData.email!, userData.password);
-    const firebaseUser = result.user;
-    
-    // Update Firebase profile with username
-    if (userData.username) {
-      await updateFirebaseProfile(firebaseUser, {
-        displayName: userData.username
-      });
+    try {
+      if (!userData.email || !userData.password) {
+        throw new Error('Email and password are required');
+      }
+
+      const result = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+      const firebaseUser = result.user;
+      
+      // Update Firebase profile with username
+      if (userData.username) {
+        await updateFirebaseProfile(firebaseUser, {
+          displayName: userData.username
+        });
+      }
+      
+      // Create and save user profile
+      const profile = createUserProfile(firebaseUser, userData);
+      saveUserProfile(profile);
+      setUser(profile);
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      throw error;
     }
-    
-    const profile: User = {
-      id: firebaseUser.uid,
-      username: userData.username || firebaseUser.email!.split('@')[0],
-      email: firebaseUser.email!,
-      bio: userData.bio || '',
-      rating: 5.0,
-      itemsGiven: 0,
-      itemsTaken: 0,
-      avatar: '',
-    };
-    
-    // Store user data
-    localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
-    setUser(profile);
   };
 
   const loginWithGoogle = async (credential: string) => {
-    const provider = GoogleAuthProvider.credential(credential);
-    const result = await signInWithCredential(auth, provider);
-    const firebaseUser = result.user;
-    
-    // Check if user data exists
-    const storedUserData = localStorage.getItem(`user_${firebaseUser.uid}`);
-    let profile: User;
-    
-    if (storedUserData) {
-      profile = JSON.parse(storedUserData);
-    } else {
-      profile = {
-        id: firebaseUser.uid,
-        username: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
-        email: firebaseUser.email!,
-        bio: '',
-        rating: 5.0,
-        itemsGiven: Math.floor(Math.random() * 15),
-        itemsTaken: Math.floor(Math.random() * 20),
-        avatar: firebaseUser.photoURL || '',
-      };
-      localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(profile));
+    try {
+      const provider = GoogleAuthProvider.credential(credential);
+      const result = await signInWithCredential(auth, provider);
+      const firebaseUser = result.user;
+      
+      // Load existing profile or create new one
+      let profile = loadUserProfile(firebaseUser.uid);
+      
+      if (profile) {
+        // Update existing profile
+        profile = {
+          ...profile,
+          email: firebaseUser.email || profile.email,
+          avatar: firebaseUser.photoURL || profile.avatar,
+        };
+        profile = updateLastActive(profile);
+      } else {
+        // Create new profile for Google user
+        profile = createUserProfile(firebaseUser);
+        saveUserProfile(profile);
+      }
+      
+      setUser(profile);
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      throw error;
     }
-    
-    setUser(profile);
   };
 
-  const logout = () => {
-    signOut(auth);
-    setUser(null);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      localStorage.removeItem('currentUser');
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      throw error;
+    }
   };
 
   const updateProfile = (updates: Partial<User>) => {
     if (user) {
-      const updatedUser = { ...user, ...updates };
+      const updatedUser = {
+        ...user,
+        ...updates,
+        lastActive: new Date().toISOString(),
+      };
       setUser(updatedUser);
-      // Update stored data
-      localStorage.setItem(`user_${user.id}`, JSON.stringify(updatedUser));
+      saveUserProfile(updatedUser);
     }
   };
 
+  const value: AuthContextType = {
+    user,
+    loading,
+    login,
+    signup,
+    loginWithGoogle,
+    logout,
+    updateProfile,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, loginWithGoogle, logout, updateProfile }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
