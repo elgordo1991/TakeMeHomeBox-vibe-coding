@@ -1,3 +1,55 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Force dark theme globally */
+html {
+  background-color: #0A0F2C;
+}
+
+body {
+  background-color: #0A0F2C;
+  color: #E5E5E5;
+}
+
+/* Custom button styles */
+.btn-primary {
+  @apply bg-dark-blue border border-silver text-silver-light font-semibold py-3 px-6 rounded-lg transition-all duration-200 hover:shadow-silver-glow active:animate-press-down active:shadow-silver-glow-lg;
+}
+
+.btn-secondary {
+  @apply bg-dark-blue-light border border-silver/50 text-silver font-medium py-2 px-4 rounded-lg transition-all duration-200 hover:border-silver hover:shadow-silver-glow active:animate-press-down;
+}
+
+/* Card styles with silver shimmer */
+.card-dark {
+  @apply bg-dark-blue border border-silver/30 rounded-xl shadow-lg;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-dark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(192, 192, 192, 0.1), transparent);
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Logo animation */
+.logo-animated {
+  animation: bounceGentle 2s infinite, glowPulse 3s infinite;
+}
+
+/* Input styles */
+.input-dark {
+  @apply bg-dark-blue border border-silver/30 text-silver-light placeholder-silver/60 focus:border-silver focus:ring-2 focus:ring-silver/20 focus:outline-none;
+}
+
+/* Safe area for mobile */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}

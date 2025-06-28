@@ -35,12 +35,12 @@ const MapView: React.FC = () => {
   const markersRef = useRef<any[]>([]);
 
   const categories = [
-    { id: 'all', name: 'All', color: 'bg-gray-100 text-gray-700' },
-    { id: 'books', name: 'Books', color: 'bg-blue-100 text-blue-700' },
-    { id: 'clothes', name: 'Clothes', color: 'bg-purple-100 text-purple-700' },
-    { id: 'toys', name: 'Toys', color: 'bg-pink-100 text-pink-700' },
-    { id: 'kitchen', name: 'Kitchen', color: 'bg-orange-100 text-orange-700' },
-    { id: 'electronics', name: 'Electronics', color: 'bg-green-100 text-green-700' },
+    { id: 'all', name: 'All' },
+    { id: 'books', name: 'Books' },
+    { id: 'clothes', name: 'Clothes' },
+    { id: 'toys', name: 'Toys' },
+    { id: 'kitchen', name: 'Kitchen' },
+    { id: 'electronics', name: 'Electronics' },
   ];
 
   const mockBoxes: BoxListing[] = [
@@ -82,27 +82,27 @@ const MapView: React.FC = () => {
 
   // Initialize Google Maps
   useEffect(() => {
-  if (
-    typeof window !== "undefined" &&
-    window.google &&
-    window.google.maps &&
-    mapRef.current &&
-    !googleMapRef.current
-  ) {
-    const defaultCenter = { lat: 51.505, lng: -0.09 };
+    if (
+      typeof window !== "undefined" &&
+      window.google &&
+      window.google.maps &&
+      mapRef.current &&
+      !googleMapRef.current
+    ) {
+      const defaultCenter = { lat: 51.505, lng: -0.09 };
 
-    googleMapRef.current = new window.google.maps.Map(mapRef.current, {
-      zoom: 15,
-      center: userLocation || defaultCenter,
-      styles: isDark ? getDarkMapStyles() : [],
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-    });
+      googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+        zoom: 15,
+        center: userLocation || defaultCenter,
+        styles: getDarkMapStyles(),
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
 
-    addMarkersToMap();
-  }
-}, [userLocation, isDark]);
+      addMarkersToMap();
+    }
+  }, [userLocation, isDark]);
 
   // Get user's current location
   useEffect(() => {
@@ -142,7 +142,7 @@ const MapView: React.FC = () => {
         icon: {
           path: window.google.maps.SymbolPath.CIRCLE,
           scale: 8,
-          fillColor: '#22c55e',
+          fillColor: '#C0C0C0',
           fillOpacity: 1,
           strokeColor: '#ffffff',
           strokeWeight: 2,
@@ -160,7 +160,7 @@ const MapView: React.FC = () => {
         icon: {
           path: window.google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
           scale: 6,
-          fillColor: box.isSpotted ? '#f97316' : '#22c55e',
+          fillColor: box.isSpotted ? '#f97316' : '#C0C0C0',
           fillOpacity: 1,
           strokeColor: '#ffffff',
           strokeWeight: 2,
@@ -169,12 +169,12 @@ const MapView: React.FC = () => {
 
       const infoWindow = new window.google.maps.InfoWindow({
         content: `
-          <div class="p-2">
-            <h3 class="font-semibold text-gray-900">${box.title}</h3>
-            <p class="text-sm text-gray-600 mt-1">${box.description}</p>
+          <div class="p-2 bg-dark-blue text-silver-light">
+            <h3 class="font-semibold">${box.title}</h3>
+            <p class="text-sm mt-1">${box.description}</p>
             <div class="flex items-center justify-between mt-2">
-              <span class="text-xs text-gray-500">${box.distance}</span>
-              <span class="text-xs text-gray-500">${box.timePosted}</span>
+              <span class="text-xs">${box.distance}</span>
+              <span class="text-xs">${box.timePosted}</span>
             </div>
           </div>
         `,
@@ -190,83 +190,38 @@ const MapView: React.FC = () => {
   };
 
   const getDarkMapStyles = () => [
-    { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+    { elementType: 'geometry', stylers: [{ color: '#0A0F2C' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0A0F2C' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#C0C0C0' }] },
     {
       featureType: 'administrative.locality',
       elementType: 'labels.text.fill',
-      stylers: [{ color: '#d59563' }],
+      stylers: [{ color: '#E5E5E5' }],
     },
     {
       featureType: 'poi',
       elementType: 'labels.text.fill',
-      stylers: [{ color: '#d59563' }],
+      stylers: [{ color: '#E5E5E5' }],
     },
     {
       featureType: 'poi.park',
       elementType: 'geometry',
-      stylers: [{ color: '#263c3f' }],
-    },
-    {
-      featureType: 'poi.park',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#6b9a76' }],
+      stylers: [{ color: '#1E293B' }],
     },
     {
       featureType: 'road',
       elementType: 'geometry',
-      stylers: [{ color: '#38414e' }],
+      stylers: [{ color: '#334155' }],
     },
     {
       featureType: 'road',
       elementType: 'geometry.stroke',
-      stylers: [{ color: '#212a37' }],
-    },
-    {
-      featureType: 'road',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#9ca5b3' }],
-    },
-    {
-      featureType: 'road.highway',
-      elementType: 'geometry',
-      stylers: [{ color: '#746855' }],
-    },
-    {
-      featureType: 'road.highway',
-      elementType: 'geometry.stroke',
-      stylers: [{ color: '#1f2835' }],
-    },
-    {
-      featureType: 'road.highway',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#f3d19c' }],
-    },
-    {
-      featureType: 'transit',
-      elementType: 'geometry',
-      stylers: [{ color: '#2f3948' }],
-    },
-    {
-      featureType: 'transit.station',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#d59563' }],
+      stylers: [{ color: '#1E293B' }],
     },
     {
       featureType: 'water',
       elementType: 'geometry',
-      stylers: [{ color: '#17263c' }],
-    },
-    {
-      featureType: 'water',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#515c6d' }],
-    },
-    {
-      featureType: 'water',
-      elementType: 'labels.text.stroke',
-      stylers: [{ color: '#17263c' }],
+      stylers: [{ color: '#1E293B' }],
     },
   ];
 
@@ -305,7 +260,7 @@ const MapView: React.FC = () => {
           onClick={() => onRate(i)}
           onMouseEnter={() => setHoverRating(i)}
           onMouseLeave={() => setHoverRating(0)}
-          className={`text-3xl transition-all duration-200 hover:scale-110 ${
+          className={`text-3xl transition-all duration-200 hover:scale-110 active:animate-press-down ${
             i <= (hoverRating || currentRating) ? 'opacity-100' : 'opacity-30'
           }`}
         >
@@ -318,12 +273,9 @@ const MapView: React.FC = () => {
 
   const handleRating = (rating: number) => {
     if (selectedBox) {
-      // Update the box rating (in real app, this would call your API)
       const updatedBox = { ...selectedBox, userRating: rating };
       setSelectedBox(updatedBox);
       setShowRating(false);
-      
-      // Show success message
       alert(`Thanks for rating! You gave ${rating} boxes.`);
     }
   };
@@ -336,17 +288,17 @@ const MapView: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-deep-blue">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div className="card-dark border-b border-silver/30">
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-xl font-bold text-silver-light">
               Nearby Boxes
             </h1>
             <button
               onClick={centerOnUserLocation}
-              className="p-2 bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
+              className="btn-secondary p-2"
             >
               <Locate className="w-5 h-5" />
             </button>
@@ -354,13 +306,13 @@ const MapView: React.FC = () => {
           
           {/* Search */}
           <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search for items..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="input-dark w-full pl-10 pr-4 py-3 rounded-lg"
             />
           </div>
 
@@ -370,10 +322,10 @@ const MapView: React.FC = () => {
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 active:animate-press-down ${
                   selectedCategory === category.id
-                    ? 'bg-primary-500 text-white'
-                    : `${category.color} dark:bg-gray-700 dark:text-gray-300`
+                    ? 'bg-dark-blue-light border border-silver text-silver-light shadow-silver-glow'
+                    : 'bg-dark-blue border border-silver/30 text-silver hover:border-silver/50'
                 }`}
               >
                 {category.name}
@@ -387,11 +339,11 @@ const MapView: React.FC = () => {
       <div className="h-64 relative">
         <div ref={mapRef} className="w-full h-full" />
         {!window.google && (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-100 to-earth-100 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+          <div className="absolute inset-0 bg-dark-blue flex items-center justify-center">
             <div className="text-center">
-              <MapPin className="w-12 h-12 text-primary-500 mx-auto mb-2" />
-              <p className="text-gray-600 dark:text-gray-300">Loading Google Maps...</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <MapPin className="w-12 h-12 text-silver mx-auto mb-2" />
+              <p className="text-silver">Loading Google Maps...</p>
+              <p className="text-sm text-silver/60 mt-1">
                 Please add your Google Maps API key
               </p>
             </div>
@@ -405,7 +357,7 @@ const MapView: React.FC = () => {
           <div
             key={box.id}
             onClick={() => setSelectedBox(box)}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+            className="card-dark overflow-hidden hover:shadow-silver-glow transition-shadow cursor-pointer active:animate-press-down"
           >
             <div className="flex">
               <img
@@ -415,25 +367,25 @@ const MapView: React.FC = () => {
               />
               <div className="flex-1 p-4">
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                  <h3 className="font-semibold text-silver-light">
                     {box.title}
                     {box.isSpotted && (
-                      <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
+                      <span className="ml-2 px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full border border-orange-500/30">
                         Spotted
                       </span>
                     )}
                   </h3>
                   <div className="flex items-center space-x-1">
                     {renderBoxRating(Math.round(box.rating))}
-                    <span className="text-sm text-gray-600 dark:text-gray-400 ml-1">
+                    <span className="text-sm text-silver ml-1">
                       {box.rating}
                     </span>
                   </div>
                 </div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
+                <p className="text-silver text-sm mb-2">
                   {box.description}
                 </p>
-                <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex items-center justify-between text-sm text-silver/60">
                   <span className="flex items-center">
                     <MapPin className="w-4 h-4 mr-1" />
                     {box.distance}
@@ -452,10 +404,10 @@ const MapView: React.FC = () => {
       {/* Box Detail Modal */}
       {selectedBox && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-t-2xl w-full max-w-md max-h-[80vh] overflow-y-auto animate-slide-up">
+          <div className="card-dark rounded-t-2xl w-full max-w-md max-h-[80vh] overflow-y-auto animate-slide-up">
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h2 className="text-xl font-bold text-silver-light">
                   {selectedBox.title}
                 </h2>
                 <button
@@ -464,7 +416,7 @@ const MapView: React.FC = () => {
                     setShowRating(false);
                     setHoverRating(0);
                   }}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="text-silver/60 hover:text-silver"
                 >
                   ✕
                 </button>
@@ -476,24 +428,24 @@ const MapView: React.FC = () => {
                 className="w-full h-48 object-cover rounded-lg mb-4"
               />
               
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-silver mb-4">
                 {selectedBox.description}
               </p>
               
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-4">
-                  <span className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center text-sm text-silver/60">
                     <MapPin className="w-4 h-4 mr-1" />
                     {selectedBox.distance}
                   </span>
-                  <span className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center text-sm text-silver/60">
                     <Clock className="w-4 h-4 mr-1" />
                     {selectedBox.timePosted}
                   </span>
                 </div>
                 <div className="flex items-center space-x-1">
                   {renderBoxRating(Math.round(selectedBox.rating))}
-                  <span className="text-sm font-medium text-gray-900 dark:text-white ml-1">
+                  <span className="text-sm font-medium text-silver-light ml-1">
                     {selectedBox.rating}
                   </span>
                 </div>
@@ -501,18 +453,18 @@ const MapView: React.FC = () => {
 
               {/* Rating Section */}
               {showRating ? (
-                <div className="bg-primary-50 dark:bg-primary-900/20 rounded-xl p-4 mb-4 border border-primary-200 dark:border-primary-800">
-                  <h3 className="text-center font-semibold text-gray-900 dark:text-white mb-3">
+                <div className="bg-dark-blue-light rounded-xl p-4 mb-4 border border-silver/30">
+                  <h3 className="text-center font-semibold text-silver-light mb-3">
                     Rate this box
                   </h3>
-                  <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="text-center text-sm text-silver mb-4">
                     How would you rate the quality and accuracy of this listing?
                   </p>
                   {renderInteractiveRating(selectedBox.userRating || 0, handleRating)}
                   <div className="flex justify-center space-x-2 mt-4">
                     <button
                       onClick={() => setShowRating(false)}
-                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      className="btn-secondary"
                     >
                       Cancel
                     </button>
@@ -522,19 +474,19 @@ const MapView: React.FC = () => {
                 <div className="flex space-x-3 mb-4">
                   <button 
                     onClick={() => setShowRating(true)}
-                    className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+                    className="btn-primary flex-1 flex items-center justify-center space-x-2"
                   >
                     <span>📦</span>
                     <span>Rate Box</span>
                   </button>
-                  <button className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
+                  <button className="btn-secondary flex-1 flex items-center justify-center space-x-2">
                     <Camera className="w-4 h-4" />
                     <span>Report</span>
                   </button>
                 </div>
               )}
               
-              <button className="w-full bg-earth-500 hover:bg-earth-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
+              <button className="btn-primary w-full flex items-center justify-center space-x-2">
                 <MessageCircle className="w-4 h-4" />
                 <span>Leave Comment</span>
               </button>
