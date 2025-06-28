@@ -242,43 +242,68 @@ const MapView: React.FC = () => {
     }
   };
 
+  // Get rating emoji based on rating value
+  const getRatingEmoji = (rating: number) => {
+    if (rating >= 4.5) return '💎'; // Perfect quality
+    if (rating >= 3.5) return '✨'; // Great quality
+    if (rating >= 2.5) return '📦'; // Okay quality
+    if (rating >= 1.5) return '💩'; // Poor quality
+    return '🗑️'; // Trash quality
+  };
+
   const renderBoxRating = (rating: number, size: 'sm' | 'lg' = 'sm') => {
-    const boxes = [];
-    const sizeClass = size === 'lg' ? 'text-2xl' : 'text-base';
+    const emoji = getRatingEmoji(rating);
+    const sizeClass = size === 'lg' ? 'text-2xl' : 'text-lg';
     
-    for (let i = 1; i <= 5; i++) {
-      boxes.push(
-        <span
-          key={i}
-          className={`${sizeClass} ${i <= rating ? 'opacity-100' : 'opacity-30'}`}
-        >
-          📦
-        </span>
-      );
-    }
-    return <div className="flex items-center space-x-1">{boxes}</div>;
+    return (
+      <div className="flex items-center space-x-1">
+        <span className={sizeClass}>{emoji}</span>
+      </div>
+    );
   };
 
   const renderInteractiveRating = (currentRating: number, onRate: (rating: number) => void) => {
-    const boxes = [];
+    const ratingOptions = [
+      { value: 1, emoji: '🗑️', label: 'Trash' },
+      { value: 2, emoji: '💩', label: 'Poor' },
+      { value: 3, emoji: '📦', label: 'Okay' },
+      { value: 4, emoji: '✨', label: 'Great' },
+      { value: 5, emoji: '💎', label: 'Perfect' }
+    ];
     
-    for (let i = 1; i <= 5; i++) {
-      boxes.push(
-        <button
-          key={i}
-          type="button"
-          onClick={() => onRate(i)}
-          onMouseEnter={() => setHoverRating(i)}
-          onMouseLeave={() => setHoverRating(0)}
-          className={`text-3xl transition-all duration-200 hover:scale-110 active:animate-press-down ${
-            i <= (hoverRating || currentRating) ? 'opacity-100' : 'opacity-30'
-          }`}
-        >
-          📦
-        </button>
-      );
-    }
-    return <div className="flex items-center justify-center space-x-2">{boxes}</div>;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-center space-x-2">
+          {ratingOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onRate(option.value)}
+              onMouseEnter={() => setHoverRating(option.value)}
+              onMouseLeave={() => setHoverRating(0)}
+              className={`text-3xl transition-all duration-200 hover:scale-110 active:animate-press-down p-2 rounded-lg ${
+                option.value <= (hoverRating || currentRating) 
+                  ? 'bg-dark-blue-light border border-silver/50' 
+                  : 'opacity-50 hover:opacity-100'
+              }`}
+              title={option.label}
+            >
+              {option.emoji}
+            </button>
+          ))}
+        </div>
+        <div className="text-center">
+          <p className="text-sm text-silver/60">
+            {hoverRating > 0 
+              ? ratingOptions.find(r => r.value === hoverRating)?.label
+              : currentRating > 0 
+                ? `Current: ${ratingOptions.find(r => r.value === currentRating)?.label}`
+                : 'Select a rating'
+            }
+          </p>
+        </div>
+      </div>
+    );
   };
 
   const handleRating = (rating: number) => {
@@ -286,7 +311,8 @@ const MapView: React.FC = () => {
       const updatedBox = { ...selectedBox, userRating: rating };
       setSelectedBox(updatedBox);
       setShowRating(false);
-      alert(`Thanks for rating! You gave ${rating} boxes.`);
+      const ratingLabel = getRatingEmoji(rating);
+      alert(`Thanks for rating! You gave ${ratingLabel} (${rating}/5).`);
     }
   };
 
@@ -400,7 +426,7 @@ const MapView: React.FC = () => {
                     )}
                   </h3>
                   <div className="flex items-center space-x-1">
-                    {renderBoxRating(Math.round(box.rating))}
+                    {renderBoxRating(box.rating)}
                     <span className="text-sm text-silver ml-1">
                       {box.rating}
                     </span>
@@ -468,7 +494,7 @@ const MapView: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  {renderBoxRating(Math.round(selectedBox.rating))}
+                  {renderBoxRating(selectedBox.rating)}
                   <span className="text-sm font-medium text-silver-light ml-1">
                     {selectedBox.rating}
                   </span>
@@ -500,7 +526,7 @@ const MapView: React.FC = () => {
                     onClick={() => setShowRating(true)}
                     className="btn-primary flex-1 flex items-center justify-center space-x-2"
                   >
-                    <span>📦</span>
+                    <span>{getRatingEmoji(5)}</span>
                     <span>Rate Box</span>
                   </button>
                   <button className="btn-secondary flex-1 flex items-center justify-center space-x-2">

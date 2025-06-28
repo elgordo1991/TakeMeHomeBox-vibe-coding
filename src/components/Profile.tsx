@@ -58,11 +58,11 @@ const Profile: React.FC = () => {
 
   // Get rating emoji based on average rating
   const getRatingEmoji = (rating: number) => {
-    if (rating >= 4.5) return '💎';
-    if (rating >= 3.5) return '✨';
-    if (rating >= 2.5) return '📦';
-    if (rating >= 1.5) return '💩';
-    return '🗑️';
+    if (rating >= 4.5) return '💎'; // Perfect quality
+    if (rating >= 3.5) return '✨'; // Great quality
+    if (rating >= 2.5) return '📦'; // Okay quality
+    if (rating >= 1.5) return '💩'; // Poor quality
+    return '🗑️'; // Trash quality
   };
 
   if (!user) {
@@ -278,6 +278,33 @@ const Profile: React.FC = () => {
               </p>
             </div>
           )}
+
+          {/* Rating System Legend */}
+          <div className="mt-4 p-3 bg-dark-blue rounded-lg border border-silver/30">
+            <h4 className="text-sm font-medium text-silver-light mb-2">Rating System</h4>
+            <div className="grid grid-cols-5 gap-2 text-center">
+              <div className="flex flex-col items-center">
+                <span className="text-lg">🗑️</span>
+                <span className="text-xs text-silver/60">Trash</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-lg">💩</span>
+                <span className="text-xs text-silver/60">Poor</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-lg">📦</span>
+                <span className="text-xs text-silver/60">Okay</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-lg">✨</span>
+                <span className="text-xs text-silver/60">Great</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-lg">💎</span>
+                <span className="text-xs text-silver/60">Perfect</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Settings Section */}
