@@ -233,7 +233,7 @@ const AddListing: React.FC = () => {
           coordinates: formData.coordinates,
         },
         isSpotted: formData.isSpotted,
-        userId: user.id,
+        userId: user.uid,
         userEmail: user.email,
         username: user.username,
       };
