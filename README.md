@@ -5,6 +5,7 @@ A community sharing app that connects people giving away free items with those w
 ## 🚀 Features
 
 - **Firebase Authentication**: Secure email/password and Google Sign-In
+- **Firestore Database**: Real-time listings and user data
 - **Interactive Maps**: Google Maps integration showing nearby boxes
 - **Community Rating System**: Emoji-based ratings (🗑️ → 💎)
 - **User Profiles**: Customizable profiles with activity tracking
@@ -20,14 +21,76 @@ A community sharing app that connects people giving away free items with those w
 - Firebase project
 - Google Cloud Console project
 
+### Firebase Setup
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project or select existing
+3. Enable Authentication:
+   - Go to Authentication → Sign-in method
+   - Enable Email/Password provider
+   - Enable Google provider (optional)
+4. Create Firestore Database:
+   - Go to Firestore Database
+   - Create database in production mode
+   - Choose your preferred location
+5. Get your Firebase config:
+   - Go to Project Settings → General
+   - Scroll down to "Your apps"
+   - Click "Web app" icon to create/view web app
+   - Copy the config object
+
 ### Environment Variables
 
 1. Copy `.env.example` to `.env`
-2. Add your API keys:
+2. Add your Firebase config values:
 
 ```env
+# Firebase Configuration (get these from Firebase Console)
+VITE_FIREBASE_API_KEY=your_firebase_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+
+# Google Maps API Configuration
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
+```
+
+### Firestore Security Rules
+
+Set up these security rules in Firebase Console → Firestore Database → Rules:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Listings collection
+    match /listings/{listingId} {
+      // Anyone can read active listings
+      allow read: if resource.data.status == 'active';
+      
+      // Only authenticated users can create listings
+      allow create: if request.auth != null 
+        && request.auth.uid == request.resource.data.userId;
+      
+      // Only the owner can update their listings
+      allow update: if request.auth != null 
+        && request.auth.uid == resource.data.userId;
+      
+      // Only the owner can delete their listings
+      allow delete: if request.auth != null 
+        && request.auth.uid == resource.data.userId;
+    }
+    
+    // Users can read/write their own user documents
+    match /users/{userId} {
+      allow read, write: if request.auth != null 
+        && request.auth.uid == userId;
+    }
+  }
+}
 ```
 
 ### Google Maps Setup
@@ -41,7 +104,7 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
 4. Create API Key credentials
 5. Add your domain to authorized origins
 
-### Google Sign-In Setup
+### Google Sign-In Setup (Optional)
 
 1. In Google Cloud Console → Credentials
 2. Create OAuth 2.0 Client ID
@@ -49,14 +112,6 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
    - `http://localhost:5173` (development)
    - Your production domain
 4. Copy Client ID to `.env`
-
-### Firebase Setup
-
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create new project or use existing
-3. Enable Authentication
-4. Add Email/Password and Google providers
-5. Update `src/firebase.config.ts` with your config
 
 ### Development
 
@@ -72,6 +127,46 @@ npm run build
 
 # Preview production build
 npm run preview
+```
+
+## 🔥 Firebase Features Used
+
+### Authentication
+- Email/password authentication
+- Google Sign-In (optional)
+- User profile management
+
+### Firestore Database
+- Real-time listings synchronization
+- User data storage
+- Rating and review system
+- Automatic data validation
+
+### Collections Structure
+
+#### Listings Collection (`/listings/{listingId}`)
+```javascript
+{
+  id: string,
+  title: string,
+  description: string,
+  category: string,
+  images: string[],
+  location: {
+    address: string,
+    coordinates: GeoPoint
+  },
+  isSpotted: boolean,
+  userId: string,
+  userEmail: string,
+  username: string,
+  rating: number,
+  ratings: [{ userId: string, rating: number, comment?: string }],
+  status: 'active' | 'taken' | 'expired',
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+  expiresAt?: Timestamp
+}
 ```
 
 ## 📱 Production Deployment
@@ -117,6 +212,7 @@ npm run preview
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS
 - **Authentication**: Firebase Auth
+- **Database**: Cloud Firestore
 - **Maps**: Google Maps JavaScript API
 - **Build Tool**: Vite
 - **Deployment**: Netlify
