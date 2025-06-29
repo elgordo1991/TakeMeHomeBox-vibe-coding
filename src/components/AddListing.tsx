@@ -209,13 +209,9 @@ const AddListing: React.FC = () => {
       return;
     }
     
+    // Only location is required
     if (!formData.coordinates) {
       setSubmitError('Please set a location for your box');
-      return;
-    }
-
-    if (formData.images.length === 0) {
-      setSubmitError('Please add at least one photo');
       return;
     }
     
@@ -224,16 +220,16 @@ const AddListing: React.FC = () => {
     
     try {
       const listingData: BoxListingInput = {
-        title: formData.title,
-        description: formData.description,
-        category: formData.category.toLowerCase(),
-        images: formData.images,
+        title: formData.title || 'Untitled Box', // Default title if empty
+        description: formData.description || 'No description provided', // Default description
+        category: formData.category || 'other', // Default to 'other' if no category selected
+        images: formData.images, // Can be empty array
         location: {
-          address: formData.location,
+          address: formData.location || 'Location set on map',
           coordinates: formData.coordinates,
         },
         isSpotted: formData.isSpotted,
-        userId: user.uid, // Use uid for consistency with Firestore rules
+        userId: user.uid,
         userEmail: user.email,
         username: user.username,
       };
@@ -299,6 +295,9 @@ const AddListing: React.FC = () => {
           <h1 className="text-xl font-bold text-silver-light">
             {formData.isSpotted ? 'Report a Spotted Box' : 'List a TakeMeHomeBox'}
           </h1>
+          <p className="text-sm text-silver/60 mt-1">
+            Only location is required - all other fields are optional
+          </p>
         </div>
       </div>
 
@@ -358,83 +357,10 @@ const AddListing: React.FC = () => {
           </div>
         </div>
 
-        {/* Images */}
-        <div className="card-dark p-4">
-          <h3 className="font-semibold text-silver-light mb-3">Photos *</h3>
-          <MultiImageUpload
-            images={formData.images}
-            onImagesChanged={handleImagesChanged}
-            maxImages={5}
-            folder="listings"
-          />
-          <p className="text-xs text-silver/60 mt-2">
-            Images will be uploaded to Firebase Storage (listings folder) per your storage rules
-          </p>
-        </div>
-
-        {/* Title */}
-        <div className="card-dark p-4">
-          <label className="block text-sm font-medium text-silver mb-2">
-            Title *
-          </label>
-          <input
-            type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleInputChange}
-            placeholder="e.g., Kitchen essentials, Children's books"
-            className="input-dark w-full px-4 py-3 rounded-lg"
-            disabled={submitting}
-            required
-          />
-        </div>
-
-        {/* Description */}
-        <div className="card-dark p-4">
-          <label className="block text-sm font-medium text-silver mb-2">
-            Description *
-          </label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleInputChange}
-            rows={4}
-            placeholder="Describe what's in the box..."
-            className="input-dark w-full px-4 py-3 rounded-lg resize-none"
-            disabled={submitting}
-            required
-          />
-        </div>
-
-        {/* Category */}
-        <div className="card-dark p-4">
-          <label className="block text-sm font-medium text-silver mb-2">
-            Category *
-          </label>
-          <div className="relative">
-            <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-              className="input-dark w-full pl-10 pr-4 py-3 rounded-lg"
-              disabled={submitting}
-              required
-            >
-              <option value="">Select a category</option>
-              {categories.map((category) => (
-                <option key={category} value={category.toLowerCase()}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Location */}
-        <div className="card-dark p-4">
-          <label className="block text-sm font-medium text-silver mb-2">
-            Location *
+        {/* Location - REQUIRED */}
+        <div className="card-dark p-4 border-2 border-silver/50">
+          <label className="block text-sm font-medium text-silver-light mb-2">
+            Location * <span className="text-xs text-silver/60">(Required)</span>
           </label>
           <div className="space-y-3">
             <div className="relative">
@@ -446,7 +372,7 @@ const AddListing: React.FC = () => {
                 onChange={handleInputChange}
                 placeholder="Tap to set location on map"
                 onClick={handleLocationClick}
-                className="input-dark w-full pl-10 pr-4 py-3 rounded-lg cursor-pointer"
+                className="input-dark w-full pl-10 pr-4 py-3 rounded-lg cursor-pointer border-2 border-silver/30 focus:border-silver"
                 disabled={submitting}
                 readOnly
                 required
@@ -480,6 +406,87 @@ const AddListing: React.FC = () => {
           </p>
         </div>
 
+        {/* Images - OPTIONAL */}
+        <div className="card-dark p-4">
+          <h3 className="font-semibold text-silver-light mb-3">
+            Photos <span className="text-xs text-silver/60">(Optional)</span>
+          </h3>
+          <MultiImageUpload
+            images={formData.images}
+            onImagesChanged={handleImagesChanged}
+            maxImages={5}
+            folder="listings"
+          />
+          <p className="text-xs text-silver/60 mt-2">
+            Add photos to help others identify your box (optional but recommended)
+          </p>
+        </div>
+
+        {/* Title - OPTIONAL */}
+        <div className="card-dark p-4">
+          <label className="block text-sm font-medium text-silver mb-2">
+            Title <span className="text-xs text-silver/60">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleInputChange}
+            placeholder="e.g., Kitchen essentials, Children's books (optional)"
+            className="input-dark w-full px-4 py-3 rounded-lg"
+            disabled={submitting}
+          />
+          <p className="text-xs text-silver/60 mt-1">
+            Leave blank for default title "Untitled Box"
+          </p>
+        </div>
+
+        {/* Description - OPTIONAL */}
+        <div className="card-dark p-4">
+          <label className="block text-sm font-medium text-silver mb-2">
+            Description <span className="text-xs text-silver/60">(Optional)</span>
+          </label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            rows={4}
+            placeholder="Describe what's in the box (optional)..."
+            className="input-dark w-full px-4 py-3 rounded-lg resize-none"
+            disabled={submitting}
+          />
+          <p className="text-xs text-silver/60 mt-1">
+            Leave blank for default description "No description provided"
+          </p>
+        </div>
+
+        {/* Category - OPTIONAL */}
+        <div className="card-dark p-4">
+          <label className="block text-sm font-medium text-silver mb-2">
+            Category <span className="text-xs text-silver/60">(Optional)</span>
+          </label>
+          <div className="relative">
+            <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleInputChange}
+              className="input-dark w-full pl-10 pr-4 py-3 rounded-lg"
+              disabled={submitting}
+            >
+              <option value="">Select a category (optional)</option>
+              {categories.map((category) => (
+                <option key={category} value={category.toLowerCase()}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-xs text-silver/60 mt-1">
+            Leave blank for default category "Other"
+          </p>
+        </div>
+
         {/* Auto-expire info */}
         {!formData.isSpotted && (
           <div className="bg-dark-blue-light rounded-xl p-4 border border-silver/30">
@@ -500,7 +507,7 @@ const AddListing: React.FC = () => {
         {/* Submit button */}
         <button
           type="submit"
-          disabled={submitting || !formData.coordinates || formData.images.length === 0}
+          disabled={submitting || !formData.coordinates}
           className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
         >
           {submitting ? (
@@ -512,6 +519,13 @@ const AddListing: React.FC = () => {
             <span>{formData.isSpotted ? 'Report Spotted Box' : 'List My Box'}</span>
           )}
         </button>
+
+        {/* Help text */}
+        <div className="text-center">
+          <p className="text-xs text-silver/60">
+            Only location is required. All other fields will use sensible defaults if left empty.
+          </p>
+        </div>
       </form>
 
       {/* Map Modal */}
@@ -520,7 +534,7 @@ const AddListing: React.FC = () => {
           <div className="card-dark rounded-2xl w-full max-w-md h-96 overflow-hidden">
             <div className="p-4 border-b border-silver/30 flex items-center justify-between">
               <h3 className="font-semibold text-silver-light">
-                Set Box Location
+                Set Box Location *
               </h3>
               <button
                 onClick={handleMapClose}
