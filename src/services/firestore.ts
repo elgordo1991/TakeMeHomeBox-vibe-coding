@@ -110,6 +110,8 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       throw new Error('Firestore is currently unavailable. Please check your internet connection and try again.');
     } else if (error.code === 'not-found') {
       throw new Error('Firestore database not found. Please ensure your Firebase project has Firestore enabled.');
+    } else if (error.code === 'failed-precondition') {
+      throw new Error('Firestore operation failed. Please ensure your database is properly configured.');
     }
     
     throw new Error(`Failed to create listing: ${error.message}`);

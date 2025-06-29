@@ -64,7 +64,6 @@ const Login: React.FC = () => {
             callback: handleGoogleSignIn,
             auto_select: false,
             cancel_on_tap_outside: true,
-            ux_mode: 'popup',
           });
 
           window.google.accounts.id.renderButton(buttonEl, {
@@ -90,6 +89,10 @@ const Login: React.FC = () => {
       script.async = true;
       script.defer = true;
       script.onload = initializeGoogleSignIn;
+      script.onerror = () => {
+        console.error('Failed to load Google Sign-In script');
+        setGoogleLoaded(false);
+      };
       document.body.appendChild(script);
     } else {
       initializeGoogleSignIn();
@@ -200,6 +203,10 @@ const Login: React.FC = () => {
         setError('Please enter a valid email address.');
       } else if (error.code === 'auth/invalid-credential') {
         setError('Invalid email or password. Please check your credentials and try again.');
+      } else if (error.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your internet connection and try again.');
+      } else if (error.code === 'auth/too-many-requests') {
+        setError('Too many failed attempts. Please try again later.');
       } else {
         setError(error.message || 'Authentication failed. Please try again.');
       }
@@ -297,7 +304,7 @@ const Login: React.FC = () => {
                   type="button"
                   onClick={handleGoogleFallback}
                   disabled={loading}
-                  className="btn-primary w-full flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-primary w-full flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -307,14 +314,6 @@ const Login: React.FC = () => {
                   </svg>
                   <span>Continue with Google</span>
                 </button>
-              )}
-
-              {!googleLoaded && (
-                <div className="text-center mt-2">
-                  <span className="text-xs text-silver/60">
-                    Loading Google Sign-In...
-                  </span>
-                </div>
               )}
 
               {/* Divider */}
