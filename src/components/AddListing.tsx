@@ -238,7 +238,7 @@ const AddListing: React.FC = () => {
     username: user.username,
   };
 
-
+console.log('[DEBUG] userId from user:', user?.uid, user?.id);
 console.log('[CURRENT USER]', user);
 console.log('[UID]', user?.uid);
 console.log('[LISTING]', listingData);
