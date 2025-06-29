@@ -1,3 +1,5 @@
+    console.log('[ENV CHECK] VITE_GOOGLE_MAPS_API_KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+
 // Google Maps utility functions
 export const loadGoogleMapsScript = (): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -6,8 +8,6 @@ export const loadGoogleMapsScript = (): Promise<void> => {
       resolve();
       return;
     }
-
-    console.log('[ENV CHECK] VITE_GOOGLE_MAPS_API_KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
     
     // Check if script is already being loaded
     if (document.querySelector('script[src*="maps.googleapis.com"]')) {
