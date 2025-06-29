@@ -65,7 +65,7 @@ const isFirebaseConfigured = () => {
   return true;
 };
 
-// Create a new listing
+// Create a new listing - aligned with permissive rules
 export const createListing = async (listingData: BoxListingInput): Promise<string> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured. Please set up your Firebase project and environment variables.');
@@ -105,7 +105,7 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
     
     // Provide more specific error messages
     if (error.code === 'permission-denied') {
-      throw new Error('Permission denied. Please check your Firestore security rules and ensure you are authenticated.');
+      throw new Error('Permission denied. Please check your Firestore security rules.');
     } else if (error.code === 'unavailable') {
       throw new Error('Firestore is currently unavailable. Please check your internet connection and try again.');
     } else if (error.code === 'not-found') {
@@ -120,7 +120,7 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
   }
 };
 
-// Get all active listings
+// Get all active listings - only reads active listings per rules
 export const getActiveListings = async (): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
     console.warn('⚠️ Firebase not configured, returning empty listings');
@@ -157,7 +157,7 @@ export const getActiveListings = async (): Promise<BoxListing[]> => {
   }
 };
 
-// Get listings by category
+// Get listings by category - only active listings
 export const getListingsByCategory = async (category: string): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
     return [];
@@ -182,7 +182,7 @@ export const getListingsByCategory = async (category: string): Promise<BoxListin
   }
 };
 
-// Get user's listings
+// Get user's listings - works with permissive rules
 export const getUserListings = async (userId: string): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
     return [];
@@ -206,7 +206,7 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
   }
 };
 
-// Subscribe to real-time listings updates with better error handling
+// Subscribe to real-time listings updates - only active listings
 export const subscribeToListings = (
   callback: (listings: BoxListing[]) => void,
   category?: string
@@ -252,7 +252,7 @@ export const subscribeToListings = (
         
         // Handle specific errors
         if (error.code === 'permission-denied') {
-          console.error('Permission denied for real-time updates. Check authentication and security rules.');
+          console.error('Permission denied for real-time updates. Check security rules.');
         } else if (error.code === 'unavailable') {
           console.error('Firestore unavailable for real-time updates. Will retry automatically.');
         } else if (error.code === 'unauthenticated') {
@@ -269,7 +269,7 @@ export const subscribeToListings = (
   }
 };
 
-// Update listing status
+// Update listing status - works with permissive update rules
 export const updateListingStatus = async (
   listingId: string, 
   status: 'active' | 'taken' | 'expired'
@@ -289,7 +289,7 @@ export const updateListingStatus = async (
     console.error('❌ Error updating listing status:', error);
     
     if (error.code === 'permission-denied') {
-      throw new Error('Permission denied. You can only update your own listings.');
+      throw new Error('Permission denied. Check your Firestore security rules.');
     } else if (error.code === 'not-found') {
       throw new Error('Listing not found.');
     } else if (error.code === 'unauthenticated') {
@@ -300,7 +300,7 @@ export const updateListingStatus = async (
   }
 };
 
-// Add rating to listing
+// Add rating to listing - works with permissive update rules
 export const addRatingToListing = async (
   listingId: string,
   userId: string,
@@ -345,7 +345,7 @@ export const addRatingToListing = async (
     console.error('❌ Error adding rating:', error);
     
     if (error.code === 'permission-denied') {
-      throw new Error('Permission denied. Please check your authentication.');
+      throw new Error('Permission denied. Check your Firestore security rules.');
     } else if (error.code === 'not-found') {
       throw new Error('Listing not found.');
     }
@@ -354,7 +354,7 @@ export const addRatingToListing = async (
   }
 };
 
-// Delete listing
+// Delete listing - works with permissive delete rules
 export const deleteListing = async (listingId: string): Promise<void> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
@@ -367,7 +367,7 @@ export const deleteListing = async (listingId: string): Promise<void> => {
     console.error('❌ Error deleting listing:', error);
     
     if (error.code === 'permission-denied') {
-      throw new Error('Permission denied. You can only delete your own listings.');
+      throw new Error('Permission denied. Check your Firestore security rules.');
     } else if (error.code === 'not-found') {
       throw new Error('Listing not found.');
     }
@@ -376,7 +376,7 @@ export const deleteListing = async (listingId: string): Promise<void> => {
   }
 };
 
-// Search listings
+// Search listings - only searches active listings
 export const searchListings = async (searchTerm: string): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
     return [];
@@ -428,7 +428,7 @@ export const calculateDistance = (
   return R * c; // Distance in kilometers
 };
 
-// Get nearby listings
+// Get nearby listings - only active listings
 export const getNearbyListings = async (
   userLat: number,
   userLng: number,

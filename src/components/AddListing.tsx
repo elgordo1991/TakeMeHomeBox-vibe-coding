@@ -233,7 +233,7 @@ const AddListing: React.FC = () => {
           coordinates: formData.coordinates,
         },
         isSpotted: formData.isSpotted,
-        userId: user.uid,
+        userId: user.uid, // Use uid for consistency with Firestore rules
         userEmail: user.email,
         username: user.username,
       };
@@ -268,7 +268,7 @@ const AddListing: React.FC = () => {
       if (error.message.includes('Firebase is not configured')) {
         setSubmitError('Database connection error. Please check your internet connection and try again.');
       } else if (error.message.includes('Permission denied')) {
-        setSubmitError('You do not have permission to create listings. Please sign in again.');
+        setSubmitError('Permission denied. Please check your Firestore security rules.');
       } else if (error.message.includes('Firestore is currently unavailable')) {
         setSubmitError('Service temporarily unavailable. Please try again in a few moments.');
       } else {
@@ -367,6 +367,9 @@ const AddListing: React.FC = () => {
             maxImages={5}
             folder="listings"
           />
+          <p className="text-xs text-silver/60 mt-2">
+            Images will be uploaded to Firebase Storage (listings folder) per your storage rules
+          </p>
         </div>
 
         {/* Title */}

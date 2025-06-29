@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -44,6 +45,7 @@ if (firebaseConfig.projectId && !firebaseConfig.projectId.match(/^[a-z0-9-]+$/))
 console.log('[FIREBASE CONFIG]', {
   projectId: firebaseConfig.projectId || 'missing',
   authDomain: firebaseConfig.authDomain || 'missing',
+  storageBucket: firebaseConfig.storageBucket || 'missing',
   apiKey: firebaseConfig.apiKey ? '***configured***' : 'missing',
   hasValidConfig: missingVars.length === 0
 });
@@ -52,27 +54,31 @@ console.log('[FIREBASE CONFIG]', {
 let app;
 let auth;
 let db;
+let storage;
 
 try {
   if (missingVars.length === 0) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
+    storage = getStorage(app);
     console.log('✅ Firebase initialized successfully');
   } else {
     console.warn('⚠️ Firebase not initialized due to missing configuration');
     // Create mock objects to prevent app crashes
     auth = null as any;
     db = null as any;
+    storage = null as any;
   }
 } catch (error) {
   console.error('❌ Firebase initialization failed:', error);
   auth = null as any;
   db = null as any;
+  storage = null as any;
 }
 
 // Optional: Connect to emulators in development
-if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV && auth && db) {
+if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV && auth && db && storage) {
   try {
     // Connect to Auth emulator
     if (!auth.emulatorConfig) {
@@ -83,10 +89,14 @@ if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV
     // Connect to Firestore emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
     console.log("🔧 Connected to Firestore emulator");
+    
+    // Connect to Storage emulator
+    connectStorageEmulator(storage, 'localhost', 9199);
+    console.log("🔧 Connected to Storage emulator");
   } catch (error) {
     console.warn("⚠️ Failed to connect to Firebase emulators:", error);
   }
 }
 
-export { auth, db };
+export { auth, db, storage };
 export default app;
