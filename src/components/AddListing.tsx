@@ -238,6 +238,8 @@ const AddListing: React.FC = () => {
         username: user.username,
       };
 
+      console.log('[CURRENT USER]', user);
+console.log('[SUBMITTING LISTING]', listingData);
       const listingId = await createListing(listingData);
       console.log('Listing created with ID:', listingId);
       
