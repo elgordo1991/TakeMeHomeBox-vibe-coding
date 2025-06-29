@@ -22,45 +22,71 @@ const requiredEnvVars = [
 ];
 
 const missingVars = requiredEnvVars.filter(varName => 
-  !import.meta.env[varName] || import.meta.env[varName] === `your_${varName.toLowerCase().replace('vite_firebase_', '').replace('_', '_')}_here`
+  !import.meta.env[varName] || 
+  import.meta.env[varName] === `your_${varName.toLowerCase().replace('vite_firebase_', '').replace('_', '_')}_here` ||
+  import.meta.env[varName] === 'your_firebase_api_key_here' ||
+  import.meta.env[varName] === 'your_project_id' ||
+  import.meta.env[varName] === 'your_messaging_sender_id' ||
+  import.meta.env[varName] === 'your_app_id'
 );
 
 if (missingVars.length > 0) {
-  console.error('Missing Firebase environment variables:', missingVars);
-  console.error('Please configure your Firebase project in the .env file');
+  console.error('❌ Missing or invalid Firebase environment variables:', missingVars);
+  console.error('📝 Please configure your Firebase project in the .env file');
+  console.error('🔗 Visit: https://console.firebase.google.com/');
+}
+
+// Validate project ID format
+if (firebaseConfig.projectId && !firebaseConfig.projectId.match(/^[a-z0-9-]+$/)) {
+  console.error('❌ Invalid Firebase project ID format. Project IDs should only contain lowercase letters, numbers, and hyphens.');
 }
 
 console.log('[FIREBASE CONFIG]', {
-  ...firebaseConfig,
-  apiKey: firebaseConfig.apiKey ? '***configured***' : 'missing'
+  projectId: firebaseConfig.projectId || 'missing',
+  authDomain: firebaseConfig.authDomain || 'missing',
+  apiKey: firebaseConfig.apiKey ? '***configured***' : 'missing',
+  hasValidConfig: missingVars.length === 0
 });
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase only if config is valid
+let app;
+let auth;
+let db;
 
-// Firebase Auth
-export const auth = getAuth(app);
-
-// Firebase Firestore
-export const db = getFirestore(app);
+try {
+  if (missingVars.length === 0) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    console.log('✅ Firebase initialized successfully');
+  } else {
+    console.warn('⚠️ Firebase not initialized due to missing configuration');
+    // Create mock objects to prevent app crashes
+    auth = null as any;
+    db = null as any;
+  }
+} catch (error) {
+  console.error('❌ Firebase initialization failed:', error);
+  auth = null as any;
+  db = null as any;
+}
 
 // Optional: Connect to emulators in development
-if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV) {
+if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV && auth && db) {
   try {
     // Connect to Auth emulator
     if (!auth.emulatorConfig) {
       connectAuthEmulator(auth, "http://localhost:9099");
-      console.log("Connected to Firebase Auth emulator");
+      console.log("🔧 Connected to Firebase Auth emulator");
     }
     
     // Connect to Firestore emulator
-    if (!db._delegate._databaseId.projectId.includes('demo-')) {
-      connectFirestoreEmulator(db, 'localhost', 8080);
-      console.log("Connected to Firestore emulator");
-    }
+    connectFirestoreEmulator(db, 'localhost', 8080);
+    console.log("🔧 Connected to Firestore emulator");
   } catch (error) {
-    console.warn("Failed to connect to Firebase emulators:", error);
+    console.warn("⚠️ Failed to connect to Firebase emulators:", error);
   }
 }
 
+export { auth, db };
 export default app;

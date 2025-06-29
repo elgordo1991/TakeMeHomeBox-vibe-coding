@@ -56,8 +56,21 @@ export interface BoxListingInput {
 // Collections
 const LISTINGS_COLLECTION = 'listings';
 
+// Check if Firebase is properly configured
+const isFirebaseConfigured = () => {
+  if (!db) {
+    console.error('❌ Firebase Firestore is not configured. Please check your environment variables.');
+    return false;
+  }
+  return true;
+};
+
 // Create a new listing
 export const createListing = async (listingData: BoxListingInput): Promise<string> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured. Please set up your Firebase project and environment variables.');
+  }
+
   try {
     const now = serverTimestamp();
     
@@ -83,16 +96,33 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       ...(expiresAt && { expiresAt: Timestamp.fromDate(expiresAt) }),
     };
 
+    console.log('📝 Creating listing:', { title: docData.title, category: docData.category });
     const docRef = await addDoc(collection(db, LISTINGS_COLLECTION), docData);
+    console.log('✅ Listing created successfully with ID:', docRef.id);
     return docRef.id;
-  } catch (error) {
-    console.error('Error creating listing:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('❌ Error creating listing:', error);
+    
+    // Provide more specific error messages
+    if (error.code === 'permission-denied') {
+      throw new Error('Permission denied. Please check your Firestore security rules and ensure you are authenticated.');
+    } else if (error.code === 'unavailable') {
+      throw new Error('Firestore is currently unavailable. Please check your internet connection and try again.');
+    } else if (error.code === 'not-found') {
+      throw new Error('Firestore database not found. Please ensure your Firebase project has Firestore enabled.');
+    }
+    
+    throw new Error(`Failed to create listing: ${error.message}`);
   }
 };
 
 // Get all active listings
 export const getActiveListings = async (): Promise<BoxListing[]> => {
+  if (!isFirebaseConfigured()) {
+    console.warn('⚠️ Firebase not configured, returning empty listings');
+    return [];
+  }
+
   try {
     const q = query(
       collection(db, LISTINGS_COLLECTION),
@@ -101,18 +131,32 @@ export const getActiveListings = async (): Promise<BoxListing[]> => {
     );
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const listings = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     } as BoxListing));
-  } catch (error) {
-    console.error('Error fetching listings:', error);
-    throw error;
+    
+    console.log(`📦 Retrieved ${listings.length} active listings`);
+    return listings;
+  } catch (error: any) {
+    console.error('❌ Error fetching listings:', error);
+    
+    if (error.code === 'permission-denied') {
+      console.error('Permission denied. Check Firestore security rules.');
+    } else if (error.code === 'unavailable') {
+      console.error('Firestore unavailable. Check internet connection.');
+    }
+    
+    return [];
   }
 };
 
 // Get listings by category
 export const getListingsByCategory = async (category: string): Promise<BoxListing[]> => {
+  if (!isFirebaseConfigured()) {
+    return [];
+  }
+
   try {
     const q = query(
       collection(db, LISTINGS_COLLECTION),
@@ -127,13 +171,17 @@ export const getListingsByCategory = async (category: string): Promise<BoxListin
       ...doc.data()
     } as BoxListing));
   } catch (error) {
-    console.error('Error fetching listings by category:', error);
-    throw error;
+    console.error('❌ Error fetching listings by category:', error);
+    return [];
   }
 };
 
 // Get user's listings
 export const getUserListings = async (userId: string): Promise<BoxListing[]> => {
+  if (!isFirebaseConfigured()) {
+    return [];
+  }
+
   try {
     const q = query(
       collection(db, LISTINGS_COLLECTION),
@@ -147,8 +195,8 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
       ...doc.data()
     } as BoxListing));
   } catch (error) {
-    console.error('Error fetching user listings:', error);
-    throw error;
+    console.error('❌ Error fetching user listings:', error);
+    return [];
   }
 };
 
@@ -157,6 +205,12 @@ export const subscribeToListings = (
   callback: (listings: BoxListing[]) => void,
   category?: string
 ) => {
+  if (!isFirebaseConfigured()) {
+    console.warn('⚠️ Firebase not configured, calling callback with empty array');
+    callback([]);
+    return () => {}; // Return empty unsubscribe function
+  }
+
   try {
     let q;
     
@@ -177,16 +231,25 @@ export const subscribeToListings = (
       );
     }
 
-    return onSnapshot(q, (querySnapshot) => {
-      const listings = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as BoxListing));
-      callback(listings);
-    });
+    console.log('🔄 Subscribing to listings updates...');
+    return onSnapshot(q, 
+      (querySnapshot) => {
+        const listings = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as BoxListing));
+        console.log(`📦 Real-time update: ${listings.length} listings`);
+        callback(listings);
+      },
+      (error) => {
+        console.error('❌ Error in listings subscription:', error);
+        callback([]); // Call callback with empty array on error
+      }
+    );
   } catch (error) {
-    console.error('Error subscribing to listings:', error);
-    throw error;
+    console.error('❌ Error subscribing to listings:', error);
+    callback([]);
+    return () => {};
   }
 };
 
@@ -195,14 +258,19 @@ export const updateListingStatus = async (
   listingId: string, 
   status: 'active' | 'taken' | 'expired'
 ): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
+
   try {
     const listingRef = doc(db, LISTINGS_COLLECTION, listingId);
     await updateDoc(listingRef, {
       status,
       updatedAt: serverTimestamp(),
     });
+    console.log(`✅ Listing ${listingId} status updated to ${status}`);
   } catch (error) {
-    console.error('Error updating listing status:', error);
+    console.error('❌ Error updating listing status:', error);
     throw error;
   }
 };
@@ -214,6 +282,10 @@ export const addRatingToListing = async (
   rating: number,
   comment?: string
 ): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
+
   try {
     const listingRef = doc(db, LISTINGS_COLLECTION, listingId);
     
@@ -241,25 +313,36 @@ export const addRatingToListing = async (
         rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
         updatedAt: serverTimestamp(),
       });
+      
+      console.log(`✅ Rating added to listing ${listingId}`);
     }
   } catch (error) {
-    console.error('Error adding rating:', error);
+    console.error('❌ Error adding rating:', error);
     throw error;
   }
 };
 
 // Delete listing
 export const deleteListing = async (listingId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
+
   try {
     await deleteDoc(doc(db, LISTINGS_COLLECTION, listingId));
+    console.log(`✅ Listing ${listingId} deleted successfully`);
   } catch (error) {
-    console.error('Error deleting listing:', error);
+    console.error('❌ Error deleting listing:', error);
     throw error;
   }
 };
 
 // Search listings
 export const searchListings = async (searchTerm: string): Promise<BoxListing[]> => {
+  if (!isFirebaseConfigured()) {
+    return [];
+  }
+
   try {
     // Note: Firestore doesn't support full-text search natively
     // This is a basic implementation - for production, consider using Algolia or similar
@@ -283,8 +366,8 @@ export const searchListings = async (searchTerm: string): Promise<BoxListing[]> 
       listing.category.toLowerCase().includes(searchLower)
     );
   } catch (error) {
-    console.error('Error searching listings:', error);
-    throw error;
+    console.error('❌ Error searching listings:', error);
+    return [];
   }
 };
 
@@ -312,6 +395,10 @@ export const getNearbyListings = async (
   userLng: number,
   radiusKm: number = 10
 ): Promise<(BoxListing & { distance: number })[]> => {
+  if (!isFirebaseConfigured()) {
+    return [];
+  }
+
   try {
     const allListings = await getActiveListings();
     
@@ -332,7 +419,7 @@ export const getNearbyListings = async (
       .filter(listing => listing.distance <= radiusKm)
       .sort((a, b) => a.distance - b.distance);
   } catch (error) {
-    console.error('Error getting nearby listings:', error);
-    throw error;
+    console.error('❌ Error getting nearby listings:', error);
+    return [];
   }
 };

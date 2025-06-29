@@ -239,9 +239,10 @@ const AddListing: React.FC = () => {
       };
 
       console.log('[CURRENT USER]', user);
-console.log('[SUBMITTING LISTING]', listingData);
+      console.log('[SUBMITTING LISTING]', listingData);
+      
       const listingId = await createListing(listingData);
-      console.log('Listing created with ID:', listingId);
+      console.log('✅ Listing created with ID:', listingId);
       
       setSubmitSuccess(true);
       
@@ -261,8 +262,18 @@ console.log('[SUBMITTING LISTING]', listingData);
       }, 2000);
       
     } catch (error: any) {
-      console.error('Error creating listing:', error);
-      setSubmitError(error.message || 'Failed to create listing. Please try again.');
+      console.error('❌ Error creating listing:', error);
+      
+      // Provide user-friendly error messages
+      if (error.message.includes('Firebase is not configured')) {
+        setSubmitError('Database connection error. Please check your internet connection and try again.');
+      } else if (error.message.includes('Permission denied')) {
+        setSubmitError('You do not have permission to create listings. Please sign in again.');
+      } else if (error.message.includes('Firestore is currently unavailable')) {
+        setSubmitError('Service temporarily unavailable. Please try again in a few moments.');
+      } else {
+        setSubmitError(error.message || 'Failed to create listing. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -309,7 +320,10 @@ console.log('[SUBMITTING LISTING]', listingData);
         <div className="p-4">
           <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 flex items-center space-x-3">
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-            <p className="text-red-400 text-sm">{submitError}</p>
+            <div>
+              <p className="text-red-400 text-sm font-medium">Error Creating Listing</p>
+              <p className="text-red-400/80 text-sm">{submitError}</p>
+            </div>
           </div>
         </div>
       )}
