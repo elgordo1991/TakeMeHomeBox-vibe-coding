@@ -21,8 +21,12 @@ export const loadGoogleMapsScript = (): Promise<void> => {
       return;
     }
 
-    // Hardcoded API key
-    const apiKey = 'AIzaSyBATlqyFxWQ_WjOWCTCyLHn6F1-POROiwc';
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+if (!apiKey) {
+  reject(new Error('Google Maps API key is missing in environment variables.'));
+  return;
+}
 
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
