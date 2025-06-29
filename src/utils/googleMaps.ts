@@ -7,6 +7,8 @@ export const loadGoogleMapsScript = (): Promise<void> => {
       return;
     }
 
+    console.log('[ENV CHECK] VITE_GOOGLE_MAPS_API_KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+    
     // Check if script is already being loaded
     if (document.querySelector('script[src*="maps.googleapis.com"]')) {
       // Wait for it to load
