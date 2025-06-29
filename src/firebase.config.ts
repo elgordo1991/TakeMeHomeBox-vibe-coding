@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator, enableNetwork, disableNetwork } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 
 const firebaseConfig = {
@@ -60,18 +60,20 @@ try {
   if (missingVars.length === 0) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    db = getFirestore(app);
     storage = getStorage(app);
     
-    // Configure Firestore settings for better performance
-    if (db) {
-      // Enable offline persistence
-      try {
-        // Note: This should be called before any other Firestore operations
-        console.log('🔧 Configuring Firestore for optimal performance...');
-      } catch (error) {
-        console.warn('⚠️ Could not enable Firestore offline persistence:', error);
-      }
+    // Initialize Firestore with enhanced settings for better connectivity
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
+      });
+      console.log('✅ Firestore initialized with persistent cache');
+    } catch (error) {
+      // Fallback to regular Firestore if persistent cache fails
+      console.warn('⚠️ Persistent cache failed, using regular Firestore:', error);
+      db = getFirestore(app);
     }
     
     console.log('✅ Firebase initialized successfully');
@@ -109,29 +111,6 @@ if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV
     console.warn("⚠️ Failed to connect to Firebase emulators:", error);
   }
 }
-
-// Network management functions
-export const enableFirestoreNetwork = async (): Promise<void> => {
-  if (db) {
-    try {
-      await enableNetwork(db);
-      console.log('✅ Firestore network enabled');
-    } catch (error) {
-      console.error('❌ Error enabling Firestore network:', error);
-    }
-  }
-};
-
-export const disableFirestoreNetwork = async (): Promise<void> => {
-  if (db) {
-    try {
-      await disableNetwork(db);
-      console.log('✅ Firestore network disabled');
-    } catch (error) {
-      console.error('❌ Error disabling Firestore network:', error);
-    }
-  }
-};
 
 export { auth, db, storage };
 export default app;

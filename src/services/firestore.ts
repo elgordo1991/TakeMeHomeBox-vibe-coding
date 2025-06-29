@@ -14,7 +14,11 @@ import {
   GeoPoint,
   Timestamp,
   enableNetwork,
-  disableNetwork
+  disableNetwork,
+  connectFirestoreEmulator,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
 
@@ -58,9 +62,11 @@ export interface BoxListingInput {
 // Collections
 const LISTINGS_COLLECTION = 'listings';
 
-// Connection retry logic
+// Connection state management
+let connectionState: 'connected' | 'disconnected' | 'reconnecting' = 'connected';
 let retryCount = 0;
 const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 2000, 5000]; // Progressive delays
 
 // Check if Firebase is properly configured
 const isFirebaseConfigured = () => {
@@ -71,31 +77,67 @@ const isFirebaseConfigured = () => {
   return true;
 };
 
-// Retry wrapper for Firestore operations
-const withRetry = async <T>(operation: () => Promise<T>, operationName: string): Promise<T> => {
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+// Enhanced retry wrapper with exponential backoff
+const withRetry = async <T>(
+  operation: () => Promise<T>, 
+  operationName: string,
+  maxRetries: number = MAX_RETRIES
+): Promise<T> => {
+  let lastError: any;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await operation();
+      connectionState = 'connected';
+      const result = await operation();
+      retryCount = 0; // Reset on success
+      return result;
     } catch (error: any) {
-      console.error(`❌ ${operationName} attempt ${attempt} failed:`, error);
+      lastError = error;
+      console.error(`❌ ${operationName} attempt ${attempt}/${maxRetries} failed:`, error);
       
-      if (attempt === MAX_RETRIES) {
+      // Don't retry on certain errors
+      if (error.code === 'permission-denied' || 
+          error.code === 'unauthenticated' ||
+          error.code === 'invalid-argument') {
         throw error;
       }
       
-      // Wait before retry (exponential backoff)
-      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-      console.log(`⏳ Retrying ${operationName} in ${delay}ms...`);
+      if (attempt === maxRetries) {
+        connectionState = 'disconnected';
+        break;
+      }
+      
+      // Progressive delay with jitter
+      const baseDelay = RETRY_DELAYS[Math.min(attempt - 1, RETRY_DELAYS.length - 1)];
+      const jitter = Math.random() * 1000;
+      const delay = baseDelay + jitter;
+      
+      connectionState = 'reconnecting';
+      console.log(`⏳ Retrying ${operationName} in ${Math.round(delay)}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  throw new Error(`Failed after ${MAX_RETRIES} attempts`);
+  
+  throw lastError;
 };
 
-// Create a new listing - aligned with permissive rules
+// Create a new listing with enhanced error handling
 export const createListing = async (listingData: BoxListingInput): Promise<string> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured. Please set up your Firebase project and environment variables.');
+  }
+
+  // Validate required fields
+  if (!listingData.userId) {
+    throw new Error('User ID is required but missing');
+  }
+  
+  if (!listingData.userEmail) {
+    throw new Error('User email is required but missing');
+  }
+  
+  if (!listingData.username) {
+    throw new Error('Username is required but missing');
   }
 
   return withRetry(async () => {
@@ -123,18 +165,23 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       ...(expiresAt && { expiresAt: Timestamp.fromDate(expiresAt) }),
     };
 
-    console.log('📝 Creating listing:', { title: docData.title, category: docData.category });
+    console.log('📝 Creating listing:', { 
+      title: docData.title, 
+      category: docData.category,
+      userId: docData.userId 
+    });
+    
     const docRef = await addDoc(collection(db, LISTINGS_COLLECTION), docData);
     console.log('✅ Listing created successfully with ID:', docRef.id);
     return docRef.id;
   }, 'createListing');
 };
 
-// Get all active listings - only reads active listings per rules
+// Get all active listings with caching
 export const getActiveListings = async (): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
-    console.warn('⚠️ Firebase not configured, returning empty listings');
-    return [];
+    console.warn('⚠️ Firebase not configured, returning cached listings');
+    return getCachedListings();
   }
 
   return withRetry(async () => {
@@ -142,7 +189,7 @@ export const getActiveListings = async (): Promise<BoxListing[]> => {
       collection(db, LISTINGS_COLLECTION),
       where('status', '==', 'active'),
       orderBy('createdAt', 'desc'),
-      limit(50) // Limit to improve performance
+      limit(50)
     );
     
     const querySnapshot = await getDocs(q);
@@ -151,18 +198,50 @@ export const getActiveListings = async (): Promise<BoxListing[]> => {
       ...doc.data()
     } as BoxListing));
     
+    // Cache the results
+    cacheListings(listings);
+    
     console.log(`📦 Retrieved ${listings.length} active listings`);
     return listings;
   }, 'getActiveListings').catch(error => {
-    console.error('❌ Error fetching listings:', error);
-    return [];
+    console.error('❌ Error fetching listings, returning cached data:', error);
+    return getCachedListings();
   });
+};
+
+// Cache management for offline support
+const cacheListings = (listings: BoxListing[]) => {
+  try {
+    localStorage.setItem('cached_listings', JSON.stringify({
+      data: listings,
+      timestamp: Date.now()
+    }));
+  } catch (error) {
+    console.warn('Failed to cache listings:', error);
+  }
+};
+
+const getCachedListings = (): BoxListing[] => {
+  try {
+    const cached = localStorage.getItem('cached_listings');
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      // Use cache if less than 5 minutes old
+      if (Date.now() - timestamp < 5 * 60 * 1000) {
+        console.log('📦 Using cached listings');
+        return data;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load cached listings:', error);
+  }
+  return [];
 };
 
 // Get listings by category
 export const getListingsByCategory = async (category: string): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
-    return [];
+    return getCachedListings().filter(listing => listing.category === category);
   }
 
   return withRetry(async () => {
@@ -181,14 +260,14 @@ export const getListingsByCategory = async (category: string): Promise<BoxListin
     } as BoxListing));
   }, 'getListingsByCategory').catch(error => {
     console.error('❌ Error fetching listings by category:', error);
-    return [];
+    return getCachedListings().filter(listing => listing.category === category);
   });
 };
 
-// Get user's listings - works with permissive rules
+// Get user's listings
 export const getUserListings = async (userId: string): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
-    return [];
+    return getCachedListings().filter(listing => listing.userId === userId);
   }
 
   return withRetry(async () => {
@@ -206,19 +285,19 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
     } as BoxListing));
   }, 'getUserListings').catch(error => {
     console.error('❌ Error fetching user listings:', error);
-    return [];
+    return getCachedListings().filter(listing => listing.userId === userId);
   });
 };
 
-// Subscribe to real-time listings updates with better error handling
+// Enhanced real-time subscription with better error handling
 export const subscribeToListings = (
   callback: (listings: BoxListing[]) => void,
   category?: string
 ) => {
   if (!isFirebaseConfigured()) {
-    console.warn('⚠️ Firebase not configured, calling callback with empty array');
-    callback([]);
-    return () => {}; // Return empty unsubscribe function
+    console.warn('⚠️ Firebase not configured, using cached data');
+    callback(getCachedListings());
+    return () => {};
   }
 
   try {
@@ -245,26 +324,42 @@ export const subscribeToListings = (
     
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
     
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
-        reconnectAttempts = 0; // Reset on successful connection
+        reconnectAttempts = 0;
+        connectionState = 'connected';
+        
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
+        }
+        
         const listings = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         } as BoxListing));
+        
+        // Cache the results
+        cacheListings(listings);
+        
         console.log(`📦 Real-time update: ${listings.length} listings`);
         callback(listings);
       },
       (error) => {
         console.error('❌ Error in listings subscription:', error);
+        connectionState = 'disconnected';
         
         // Handle specific errors
         if (error.code === 'permission-denied') {
           console.error('Permission denied for real-time updates. Check security rules.');
-          callback([]); // Don't retry for permission errors
-        } else if (error.code === 'unavailable') {
+          callback(getCachedListings());
+        } else if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
           console.error('Firestore unavailable for real-time updates.');
+          
+          // Use cached data immediately
+          callback(getCachedListings());
           
           // Implement exponential backoff for reconnection
           if (reconnectAttempts < maxReconnectAttempts) {
@@ -272,33 +367,39 @@ export const subscribeToListings = (
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
             console.log(`⏳ Attempting to reconnect in ${delay}ms... (attempt ${reconnectAttempts})`);
             
-            setTimeout(() => {
+            connectionState = 'reconnecting';
+            reconnectTimeout = setTimeout(() => {
               // Try to re-enable network connection
               enableNetwork(db).catch(console.error);
             }, delay);
           } else {
-            console.error('Max reconnection attempts reached. Falling back to empty data.');
-            callback([]);
+            console.error('Max reconnection attempts reached. Using cached data.');
+            callback(getCachedListings());
           }
         } else if (error.code === 'unauthenticated') {
           console.error('Authentication required for real-time updates.');
-          callback([]);
+          callback(getCachedListings());
         } else {
           console.error('Unknown error in real-time subscription:', error);
-          callback([]);
+          callback(getCachedListings());
         }
       }
     );
     
-    return unsubscribe;
+    return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      unsubscribe();
+    };
   } catch (error) {
     console.error('❌ Error subscribing to listings:', error);
-    callback([]);
+    callback(getCachedListings());
     return () => {};
   }
 };
 
-// Update listing status - works with permissive update rules
+// Update listing status
 export const updateListingStatus = async (
   listingId: string, 
   status: 'active' | 'taken' | 'expired'
@@ -317,7 +418,7 @@ export const updateListingStatus = async (
   }, 'updateListingStatus');
 };
 
-// Add rating to listing - works with permissive update rules
+// Add rating to listing
 export const addRatingToListing = async (
   listingId: string,
   userId: string,
@@ -352,7 +453,7 @@ export const addRatingToListing = async (
       
       await updateDoc(listingRef, {
         ratings: newRatings,
-        rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+        rating: Math.round(averageRating * 10) / 10,
         updatedAt: serverTimestamp(),
       });
       
@@ -361,7 +462,7 @@ export const addRatingToListing = async (
   }, 'addRatingToListing');
 };
 
-// Delete listing - works with permissive delete rules
+// Delete listing
 export const deleteListing = async (listingId: string): Promise<void> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
@@ -373,15 +474,19 @@ export const deleteListing = async (listingId: string): Promise<void> => {
   }, 'deleteListing');
 };
 
-// Search listings - only searches active listings
+// Search listings
 export const searchListings = async (searchTerm: string): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
-    return [];
+    const cached = getCachedListings();
+    const searchLower = searchTerm.toLowerCase();
+    return cached.filter(listing => 
+      listing.title.toLowerCase().includes(searchLower) ||
+      listing.description.toLowerCase().includes(searchLower) ||
+      listing.category.toLowerCase().includes(searchLower)
+    );
   }
 
   return withRetry(async () => {
-    // Note: Firestore doesn't support full-text search natively
-    // This is a basic implementation - for production, consider using Algolia or similar
     const q = query(
       collection(db, LISTINGS_COLLECTION),
       where('status', '==', 'active'),
@@ -404,7 +509,13 @@ export const searchListings = async (searchTerm: string): Promise<BoxListing[]> 
     );
   }, 'searchListings').catch(error => {
     console.error('❌ Error searching listings:', error);
-    return [];
+    const cached = getCachedListings();
+    const searchLower = searchTerm.toLowerCase();
+    return cached.filter(listing => 
+      listing.title.toLowerCase().includes(searchLower) ||
+      listing.description.toLowerCase().includes(searchLower) ||
+      listing.category.toLowerCase().includes(searchLower)
+    );
   });
 };
 
@@ -426,14 +537,26 @@ export const calculateDistance = (
   return R * c; // Distance in kilometers
 };
 
-// Get nearby listings - only active listings
+// Get nearby listings
 export const getNearbyListings = async (
   userLat: number,
   userLng: number,
   radiusKm: number = 10
 ): Promise<(BoxListing & { distance: number })[]> => {
   if (!isFirebaseConfigured()) {
-    return [];
+    const cached = getCachedListings();
+    return cached
+      .map(listing => {
+        const distance = calculateDistance(
+          userLat,
+          userLng,
+          listing.location.coordinates.latitude,
+          listing.location.coordinates.longitude
+        );
+        return { ...listing, distance };
+      })
+      .filter(listing => listing.distance <= radiusKm)
+      .sort((a, b) => a.distance - b.distance);
   }
 
   return withRetry(async () => {
@@ -457,7 +580,19 @@ export const getNearbyListings = async (
       .sort((a, b) => a.distance - b.distance);
   }, 'getNearbyListings').catch(error => {
     console.error('❌ Error getting nearby listings:', error);
-    return [];
+    const cached = getCachedListings();
+    return cached
+      .map(listing => {
+        const distance = calculateDistance(
+          userLat,
+          userLng,
+          listing.location.coordinates.latitude,
+          listing.location.coordinates.longitude
+        );
+        return { ...listing, distance };
+      })
+      .filter(listing => listing.distance <= radiusKm)
+      .sort((a, b) => a.distance - b.distance);
   });
 };
 
@@ -466,9 +601,11 @@ export const enableFirestoreNetwork = async (): Promise<void> => {
   if (isFirebaseConfigured()) {
     try {
       await enableNetwork(db);
+      connectionState = 'connected';
       console.log('✅ Firestore network enabled');
     } catch (error) {
       console.error('❌ Error enabling Firestore network:', error);
+      connectionState = 'disconnected';
     }
   }
 };
@@ -477,9 +614,30 @@ export const disableFirestoreNetwork = async (): Promise<void> => {
   if (isFirebaseConfigured()) {
     try {
       await disableNetwork(db);
+      connectionState = 'disconnected';
       console.log('✅ Firestore network disabled');
     } catch (error) {
       console.error('❌ Error disabling Firestore network:', error);
+    }
+  }
+};
+
+// Get current connection state
+export const getConnectionState = () => connectionState;
+
+// Force reconnection
+export const forceReconnect = async (): Promise<void> => {
+  if (isFirebaseConfigured()) {
+    try {
+      await disableNetwork(db);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await enableNetwork(db);
+      connectionState = 'connected';
+      console.log('✅ Firestore reconnected successfully');
+    } catch (error) {
+      console.error('❌ Error during forced reconnection:', error);
+      connectionState = 'disconnected';
+      throw error;
     }
   }
 };

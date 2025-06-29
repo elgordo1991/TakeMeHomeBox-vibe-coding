@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
@@ -10,6 +10,8 @@ import {
   calculateDistance,
   enableFirestoreNetwork,
   disableFirestoreNetwork,
+  getConnectionState,
+  forceReconnect,
   BoxListing 
 } from '../services/firestore';
 
@@ -40,6 +42,7 @@ const MapView: React.FC = () => {
   const [loadingListings, setLoadingListings] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | 'reconnecting'>('online');
   const [retryCount, setRetryCount] = useState(0);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -59,8 +62,20 @@ const MapView: React.FC = () => {
     { id: 'other', name: 'Other' },
   ];
 
-  // Network status monitoring
+  // Monitor connection status
   useEffect(() => {
+    const checkConnectionStatus = () => {
+      const state = getConnectionState();
+      setConnectionStatus(state === 'connected' ? 'online' : 
+                         state === 'reconnecting' ? 'reconnecting' : 'offline');
+    };
+
+    // Check initially
+    checkConnectionStatus();
+
+    // Check periodically
+    const interval = setInterval(checkConnectionStatus, 2000);
+
     const handleOnline = () => {
       setConnectionStatus('online');
       setRetryCount(0);
@@ -75,6 +90,7 @@ const MapView: React.FC = () => {
     window.addEventListener('offline', handleOffline);
 
     return () => {
+      clearInterval(interval);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
@@ -110,6 +126,7 @@ const MapView: React.FC = () => {
       (firestoreListings) => {
         setConnectionStatus('online');
         setRetryCount(0);
+        setIsReconnecting(false);
         
         // Process listings to add distance and time info
         const processedListings = firestoreListings.map(listing => {
@@ -329,16 +346,24 @@ const MapView: React.FC = () => {
   };
 
   const handleRetryConnection = async () => {
+    setIsReconnecting(true);
     setConnectionStatus('reconnecting');
     setRetryCount(prev => prev + 1);
     
     try {
-      await enableFirestoreNetwork();
-      // Force a re-subscription
-      window.location.reload();
+      await forceReconnect();
+      setConnectionStatus('online');
+      setRetryCount(0);
+      
+      // Refresh the page to re-establish all connections
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error('Failed to reconnect:', error);
       setConnectionStatus('offline');
+    } finally {
+      setIsReconnecting(false);
     }
   };
 
@@ -479,10 +504,15 @@ const MapView: React.FC = () => {
                 ) : (
                   <button
                     onClick={handleRetryConnection}
-                    className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors"
+                    disabled={isReconnecting}
+                    className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
                     title="Connection lost - Click to retry"
                   >
-                    <WifiOff className="w-4 h-4" />
+                    {isReconnecting ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <WifiOff className="w-4 h-4" />
+                    )}
                     {retryCount > 0 && <span className="text-xs">({retryCount})</span>}
                   </button>
                 )}
@@ -507,13 +537,14 @@ const MapView: React.FC = () => {
             <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <WifiOff className="w-4 h-4 text-red-400" />
-                <span className="text-red-400 text-sm">Connection lost. Some features may not work.</span>
+                <span className="text-red-400 text-sm">Connection lost. Showing cached data.</span>
               </div>
               <button
                 onClick={handleRetryConnection}
-                className="text-red-400 hover:text-red-300 text-sm underline"
+                disabled={isReconnecting}
+                className="text-red-400 hover:text-red-300 text-sm underline disabled:opacity-50"
               >
-                Retry
+                {isReconnecting ? 'Retrying...' : 'Retry'}
               </button>
             </div>
           )}
