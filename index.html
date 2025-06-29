@@ -12,19 +12,6 @@
 
     <!-- Google Sign-In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    
-    <!-- Add CSP meta tag to allow Google Sign-In -->
-    <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com;
-      style-src 'self' 'unsafe-inline' https://accounts.google.com;
-      img-src 'self' data: https: blob:;
-      font-src 'self' https:;
-      connect-src 'self' https: wss:;
-      frame-src 'self' https://accounts.google.com;
-      object-src 'none';
-      base-uri 'self';
-    ">
   </head>
   <body>
     <div id="root"></div>

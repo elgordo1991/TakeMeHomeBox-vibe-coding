@@ -50,6 +50,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Check if Firebase is configured
+  const isFirebaseConfigured = () => {
+    return auth && db;
+  };
+
   // Create user profile in Firestore
   const createUserProfile = async (firebaseUser: FirebaseUser, additionalData?: Partial<User>): Promise<User> => {
     const now = new Date().toISOString();
@@ -69,37 +74,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...additionalData,
     };
 
-    try {
-      // Save to Firestore
-      await setDoc(doc(db, 'users', firebaseUser.uid), userProfile);
-      console.log('✅ User profile created in Firestore');
-    } catch (error) {
-      console.error('❌ Error creating user profile:', error);
+    if (isFirebaseConfigured()) {
+      try {
+        // Save to Firestore
+        await setDoc(doc(db, 'users', firebaseUser.uid), userProfile);
+        console.log('✅ User profile created in Firestore');
+      } catch (error) {
+        console.error('❌ Error creating user profile:', error);
+        // Continue without Firestore if it fails
+      }
+    } else {
+      console.warn('⚠️ Firebase not configured, storing user profile locally');
+      // Store locally as fallback
+      localStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(userProfile));
     }
 
     return userProfile;
   };
 
-  // Load user profile from Firestore
+  // Load user profile from Firestore or localStorage
   const loadUserProfile = async (userId: string): Promise<User | null> => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      if (userDoc.exists()) {
-        const userData = userDoc.data() as User;
-        // Update last active
-        await updateDoc(doc(db, 'users', userId), {
-          lastActive: new Date().toISOString()
-        });
-        return { ...userData, lastActive: new Date().toISOString() };
+    if (isFirebaseConfigured()) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as User;
+          // Update last active
+          await updateDoc(doc(db, 'users', userId), {
+            lastActive: new Date().toISOString()
+          });
+          return { ...userData, lastActive: new Date().toISOString() };
+        }
+      } catch (error) {
+        console.error('Error loading user profile from Firestore:', error);
+        // Fall back to localStorage
       }
-      return null;
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-      return null;
     }
+    
+    // Fallback to localStorage
+    try {
+      const storedData = localStorage.getItem(`user_${userId}`);
+      if (storedData) {
+        const userData = JSON.parse(storedData);
+        userData.lastActive = new Date().toISOString();
+        localStorage.setItem(`user_${userId}`, JSON.stringify(userData));
+        return userData;
+      }
+    } catch (error) {
+      console.error('Error loading user profile from localStorage:', error);
+    }
+    
+    return null;
   };
 
   useEffect(() => {
+    if (!isFirebaseConfigured()) {
+      console.warn('⚠️ Firebase not configured, authentication disabled');
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
@@ -126,6 +160,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
+    if (!isFirebaseConfigured()) {
+      throw new Error('Firebase is not configured. Please check your environment variables.');
+    }
+
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = result.user;
@@ -145,6 +183,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signup = async (userData: Partial<User> & { password: string }) => {
+    if (!isFirebaseConfigured()) {
+      throw new Error('Firebase is not configured. Please check your environment variables.');
+    }
+
     try {
       if (!userData.email || !userData.password) {
         throw new Error('Email and password are required');
@@ -170,6 +212,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async (credential: string) => {
+    if (!isFirebaseConfigured()) {
+      throw new Error('Firebase is not configured. Please check your environment variables.');
+    }
+
     try {
       const provider = GoogleAuthProvider.credential(credential);
       const result = await signInWithCredential(auth, provider);
@@ -191,6 +237,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    if (!isFirebaseConfigured()) {
+      setUser(null);
+      return;
+    }
+
     try {
       await signOut(auth);
       setUser(null);
@@ -202,18 +253,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (updates: Partial<User>) => {
     if (user) {
+      const updatedUser = {
+        ...user,
+        ...updates,
+        lastActive: new Date().toISOString(),
+      };
+      
+      if (isFirebaseConfigured()) {
+        try {
+          // Update in Firestore
+          await updateDoc(doc(db, 'users', user.uid), updatedUser);
+          setUser(updatedUser);
+          return;
+        } catch (error) {
+          console.error('Error updating profile in Firestore:', error);
+          // Fall back to localStorage
+        }
+      }
+      
+      // Fallback to localStorage
       try {
-        const updatedUser = {
-          ...user,
-          ...updates,
-          lastActive: new Date().toISOString(),
-        };
-        
-        // Update in Firestore
-        await updateDoc(doc(db, 'users', user.uid), updatedUser);
+        localStorage.setItem(`user_${user.uid}`, JSON.stringify(updatedUser));
         setUser(updatedUser);
       } catch (error) {
-        console.error('Error updating profile:', error);
+        console.error('Error updating profile in localStorage:', error);
         throw error;
       }
     }

@@ -54,13 +54,21 @@ let auth;
 let db;
 
 try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  console.log('✅ Firebase initialized successfully');
+  if (missingVars.length === 0) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    console.log('✅ Firebase initialized successfully');
+  } else {
+    console.warn('⚠️ Firebase not initialized due to missing configuration');
+    // Create mock objects to prevent app crashes
+    auth = null as any;
+    db = null as any;
+  }
 } catch (error) {
   console.error('❌ Firebase initialization failed:', error);
-  throw error;
+  auth = null as any;
+  db = null as any;
 }
 
 // Optional: Connect to emulators in development

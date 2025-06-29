@@ -112,6 +112,8 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       throw new Error('Firestore database not found. Please ensure your Firebase project has Firestore enabled.');
     } else if (error.code === 'failed-precondition') {
       throw new Error('Firestore operation failed. Please ensure your database is properly configured.');
+    } else if (error.code === 'unauthenticated') {
+      throw new Error('Authentication required. Please sign in and try again.');
     }
     
     throw new Error(`Failed to create listing: ${error.message}`);
@@ -147,6 +149,8 @@ export const getActiveListings = async (): Promise<BoxListing[]> => {
       console.error('Permission denied. Check Firestore security rules.');
     } else if (error.code === 'unavailable') {
       console.error('Firestore unavailable. Check internet connection.');
+    } else if (error.code === 'unauthenticated') {
+      console.error('Authentication required for this operation.');
     }
     
     return [];
@@ -202,7 +206,7 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
   }
 };
 
-// Subscribe to real-time listings updates
+// Subscribe to real-time listings updates with better error handling
 export const subscribeToListings = (
   callback: (listings: BoxListing[]) => void,
   category?: string
@@ -245,6 +249,16 @@ export const subscribeToListings = (
       },
       (error) => {
         console.error('❌ Error in listings subscription:', error);
+        
+        // Handle specific errors
+        if (error.code === 'permission-denied') {
+          console.error('Permission denied for real-time updates. Check authentication and security rules.');
+        } else if (error.code === 'unavailable') {
+          console.error('Firestore unavailable for real-time updates. Will retry automatically.');
+        } else if (error.code === 'unauthenticated') {
+          console.error('Authentication required for real-time updates.');
+        }
+        
         callback([]); // Call callback with empty array on error
       }
     );
@@ -271,8 +285,17 @@ export const updateListingStatus = async (
       updatedAt: serverTimestamp(),
     });
     console.log(`✅ Listing ${listingId} status updated to ${status}`);
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error updating listing status:', error);
+    
+    if (error.code === 'permission-denied') {
+      throw new Error('Permission denied. You can only update your own listings.');
+    } else if (error.code === 'not-found') {
+      throw new Error('Listing not found.');
+    } else if (error.code === 'unauthenticated') {
+      throw new Error('Authentication required to update listings.');
+    }
+    
     throw error;
   }
 };
@@ -318,8 +341,15 @@ export const addRatingToListing = async (
       
       console.log(`✅ Rating added to listing ${listingId}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error adding rating:', error);
+    
+    if (error.code === 'permission-denied') {
+      throw new Error('Permission denied. Please check your authentication.');
+    } else if (error.code === 'not-found') {
+      throw new Error('Listing not found.');
+    }
+    
     throw error;
   }
 };
@@ -333,8 +363,15 @@ export const deleteListing = async (listingId: string): Promise<void> => {
   try {
     await deleteDoc(doc(db, LISTINGS_COLLECTION, listingId));
     console.log(`✅ Listing ${listingId} deleted successfully`);
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error deleting listing:', error);
+    
+    if (error.code === 'permission-denied') {
+      throw new Error('Permission denied. You can only delete your own listings.');
+    } else if (error.code === 'not-found') {
+      throw new Error('Listing not found.');
+    }
+    
     throw error;
   }
 };
