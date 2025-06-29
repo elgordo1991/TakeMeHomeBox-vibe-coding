@@ -1,3 +1,5 @@
+console.log('[VITE CONFIG] Env Key:', process.env.VITE_GOOGLE_MAPS_API_KEY);
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
