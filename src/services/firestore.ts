@@ -12,7 +12,9 @@ import {
   onSnapshot,
   serverTimestamp,
   GeoPoint,
-  Timestamp
+  Timestamp,
+  enableNetwork,
+  disableNetwork
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
 
@@ -56,6 +58,10 @@ export interface BoxListingInput {
 // Collections
 const LISTINGS_COLLECTION = 'listings';
 
+// Connection retry logic
+let retryCount = 0;
+const MAX_RETRIES = 3;
+
 // Check if Firebase is properly configured
 const isFirebaseConfigured = () => {
   if (!db) {
@@ -65,13 +71,34 @@ const isFirebaseConfigured = () => {
   return true;
 };
 
+// Retry wrapper for Firestore operations
+const withRetry = async <T>(operation: () => Promise<T>, operationName: string): Promise<T> => {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      console.error(`❌ ${operationName} attempt ${attempt} failed:`, error);
+      
+      if (attempt === MAX_RETRIES) {
+        throw error;
+      }
+      
+      // Wait before retry (exponential backoff)
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      console.log(`⏳ Retrying ${operationName} in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error(`Failed after ${MAX_RETRIES} attempts`);
+};
+
 // Create a new listing - aligned with permissive rules
 export const createListing = async (listingData: BoxListingInput): Promise<string> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured. Please set up your Firebase project and environment variables.');
   }
 
-  try {
+  return withRetry(async () => {
     const now = serverTimestamp();
     
     // Calculate expiry date (48 hours from now for non-spotted items)
@@ -100,24 +127,7 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
     const docRef = await addDoc(collection(db, LISTINGS_COLLECTION), docData);
     console.log('✅ Listing created successfully with ID:', docRef.id);
     return docRef.id;
-  } catch (error: any) {
-    console.error('❌ Error creating listing:', error);
-    
-    // Provide more specific error messages
-    if (error.code === 'permission-denied') {
-      throw new Error('Permission denied. Please check your Firestore security rules.');
-    } else if (error.code === 'unavailable') {
-      throw new Error('Firestore is currently unavailable. Please check your internet connection and try again.');
-    } else if (error.code === 'not-found') {
-      throw new Error('Firestore database not found. Please ensure your Firebase project has Firestore enabled.');
-    } else if (error.code === 'failed-precondition') {
-      throw new Error('Firestore operation failed. Please ensure your database is properly configured.');
-    } else if (error.code === 'unauthenticated') {
-      throw new Error('Authentication required. Please sign in and try again.');
-    }
-    
-    throw new Error(`Failed to create listing: ${error.message}`);
-  }
+  }, 'createListing');
 };
 
 // Get all active listings - only reads active listings per rules
@@ -127,11 +137,12 @@ export const getActiveListings = async (): Promise<BoxListing[]> => {
     return [];
   }
 
-  try {
+  return withRetry(async () => {
     const q = query(
       collection(db, LISTINGS_COLLECTION),
       where('status', '==', 'active'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(50) // Limit to improve performance
     );
     
     const querySnapshot = await getDocs(q);
@@ -142,33 +153,25 @@ export const getActiveListings = async (): Promise<BoxListing[]> => {
     
     console.log(`📦 Retrieved ${listings.length} active listings`);
     return listings;
-  } catch (error: any) {
+  }, 'getActiveListings').catch(error => {
     console.error('❌ Error fetching listings:', error);
-    
-    if (error.code === 'permission-denied') {
-      console.error('Permission denied. Check Firestore security rules.');
-    } else if (error.code === 'unavailable') {
-      console.error('Firestore unavailable. Check internet connection.');
-    } else if (error.code === 'unauthenticated') {
-      console.error('Authentication required for this operation.');
-    }
-    
     return [];
-  }
+  });
 };
 
-// Get listings by category - only active listings
+// Get listings by category
 export const getListingsByCategory = async (category: string): Promise<BoxListing[]> => {
   if (!isFirebaseConfigured()) {
     return [];
   }
 
-  try {
+  return withRetry(async () => {
     const q = query(
       collection(db, LISTINGS_COLLECTION),
       where('status', '==', 'active'),
       where('category', '==', category),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(50)
     );
     
     const querySnapshot = await getDocs(q);
@@ -176,10 +179,10 @@ export const getListingsByCategory = async (category: string): Promise<BoxListin
       id: doc.id,
       ...doc.data()
     } as BoxListing));
-  } catch (error) {
+  }, 'getListingsByCategory').catch(error => {
     console.error('❌ Error fetching listings by category:', error);
     return [];
-  }
+  });
 };
 
 // Get user's listings - works with permissive rules
@@ -188,11 +191,12 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
     return [];
   }
 
-  try {
+  return withRetry(async () => {
     const q = query(
       collection(db, LISTINGS_COLLECTION),
       where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(100)
     );
     
     const querySnapshot = await getDocs(q);
@@ -200,13 +204,13 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
       id: doc.id,
       ...doc.data()
     } as BoxListing));
-  } catch (error) {
+  }, 'getUserListings').catch(error => {
     console.error('❌ Error fetching user listings:', error);
     return [];
-  }
+  });
 };
 
-// Subscribe to real-time listings updates - only active listings
+// Subscribe to real-time listings updates with better error handling
 export const subscribeToListings = (
   callback: (listings: BoxListing[]) => void,
   category?: string
@@ -238,8 +242,13 @@ export const subscribeToListings = (
     }
 
     console.log('🔄 Subscribing to listings updates...');
-    return onSnapshot(q, 
+    
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    
+    const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
+        reconnectAttempts = 0; // Reset on successful connection
         const listings = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -253,15 +262,35 @@ export const subscribeToListings = (
         // Handle specific errors
         if (error.code === 'permission-denied') {
           console.error('Permission denied for real-time updates. Check security rules.');
+          callback([]); // Don't retry for permission errors
         } else if (error.code === 'unavailable') {
-          console.error('Firestore unavailable for real-time updates. Will retry automatically.');
+          console.error('Firestore unavailable for real-time updates.');
+          
+          // Implement exponential backoff for reconnection
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+            console.log(`⏳ Attempting to reconnect in ${delay}ms... (attempt ${reconnectAttempts})`);
+            
+            setTimeout(() => {
+              // Try to re-enable network connection
+              enableNetwork(db).catch(console.error);
+            }, delay);
+          } else {
+            console.error('Max reconnection attempts reached. Falling back to empty data.');
+            callback([]);
+          }
         } else if (error.code === 'unauthenticated') {
           console.error('Authentication required for real-time updates.');
+          callback([]);
+        } else {
+          console.error('Unknown error in real-time subscription:', error);
+          callback([]);
         }
-        
-        callback([]); // Call callback with empty array on error
       }
     );
+    
+    return unsubscribe;
   } catch (error) {
     console.error('❌ Error subscribing to listings:', error);
     callback([]);
@@ -278,26 +307,14 @@ export const updateListingStatus = async (
     throw new Error('Firebase is not configured');
   }
 
-  try {
+  return withRetry(async () => {
     const listingRef = doc(db, LISTINGS_COLLECTION, listingId);
     await updateDoc(listingRef, {
       status,
       updatedAt: serverTimestamp(),
     });
     console.log(`✅ Listing ${listingId} status updated to ${status}`);
-  } catch (error: any) {
-    console.error('❌ Error updating listing status:', error);
-    
-    if (error.code === 'permission-denied') {
-      throw new Error('Permission denied. Check your Firestore security rules.');
-    } else if (error.code === 'not-found') {
-      throw new Error('Listing not found.');
-    } else if (error.code === 'unauthenticated') {
-      throw new Error('Authentication required to update listings.');
-    }
-    
-    throw error;
-  }
+  }, 'updateListingStatus');
 };
 
 // Add rating to listing - works with permissive update rules
@@ -311,7 +328,7 @@ export const addRatingToListing = async (
     throw new Error('Firebase is not configured');
   }
 
-  try {
+  return withRetry(async () => {
     const listingRef = doc(db, LISTINGS_COLLECTION, listingId);
     
     // Get current listing to update ratings array
@@ -341,17 +358,7 @@ export const addRatingToListing = async (
       
       console.log(`✅ Rating added to listing ${listingId}`);
     }
-  } catch (error: any) {
-    console.error('❌ Error adding rating:', error);
-    
-    if (error.code === 'permission-denied') {
-      throw new Error('Permission denied. Check your Firestore security rules.');
-    } else if (error.code === 'not-found') {
-      throw new Error('Listing not found.');
-    }
-    
-    throw error;
-  }
+  }, 'addRatingToListing');
 };
 
 // Delete listing - works with permissive delete rules
@@ -360,20 +367,10 @@ export const deleteListing = async (listingId: string): Promise<void> => {
     throw new Error('Firebase is not configured');
   }
 
-  try {
+  return withRetry(async () => {
     await deleteDoc(doc(db, LISTINGS_COLLECTION, listingId));
     console.log(`✅ Listing ${listingId} deleted successfully`);
-  } catch (error: any) {
-    console.error('❌ Error deleting listing:', error);
-    
-    if (error.code === 'permission-denied') {
-      throw new Error('Permission denied. Check your Firestore security rules.');
-    } else if (error.code === 'not-found') {
-      throw new Error('Listing not found.');
-    }
-    
-    throw error;
-  }
+  }, 'deleteListing');
 };
 
 // Search listings - only searches active listings
@@ -382,13 +379,14 @@ export const searchListings = async (searchTerm: string): Promise<BoxListing[]> 
     return [];
   }
 
-  try {
+  return withRetry(async () => {
     // Note: Firestore doesn't support full-text search natively
     // This is a basic implementation - for production, consider using Algolia or similar
     const q = query(
       collection(db, LISTINGS_COLLECTION),
       where('status', '==', 'active'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(100)
     );
     
     const querySnapshot = await getDocs(q);
@@ -404,10 +402,10 @@ export const searchListings = async (searchTerm: string): Promise<BoxListing[]> 
       listing.description.toLowerCase().includes(searchLower) ||
       listing.category.toLowerCase().includes(searchLower)
     );
-  } catch (error) {
+  }, 'searchListings').catch(error => {
     console.error('❌ Error searching listings:', error);
     return [];
-  }
+  });
 };
 
 // Helper function to calculate distance between two points
@@ -438,7 +436,7 @@ export const getNearbyListings = async (
     return [];
   }
 
-  try {
+  return withRetry(async () => {
     const allListings = await getActiveListings();
     
     return allListings
@@ -457,8 +455,31 @@ export const getNearbyListings = async (
       })
       .filter(listing => listing.distance <= radiusKm)
       .sort((a, b) => a.distance - b.distance);
-  } catch (error) {
+  }, 'getNearbyListings').catch(error => {
     console.error('❌ Error getting nearby listings:', error);
     return [];
+  });
+};
+
+// Network status management
+export const enableFirestoreNetwork = async (): Promise<void> => {
+  if (isFirebaseConfigured()) {
+    try {
+      await enableNetwork(db);
+      console.log('✅ Firestore network enabled');
+    } catch (error) {
+      console.error('❌ Error enabling Firestore network:', error);
+    }
+  }
+};
+
+export const disableFirestoreNetwork = async (): Promise<void> => {
+  if (isFirebaseConfigured()) {
+    try {
+      await disableNetwork(db);
+      console.log('✅ Firestore network disabled');
+    } catch (error) {
+      console.error('❌ Error disabling Firestore network:', error);
+    }
   }
 };

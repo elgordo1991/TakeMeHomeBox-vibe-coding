@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle } from 'lucide-react';
+import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
@@ -8,6 +8,8 @@ import {
   addRatingToListing, 
   updateListingStatus,
   calculateDistance,
+  enableFirestoreNetwork,
+  disableFirestoreNetwork,
   BoxListing 
 } from '../services/firestore';
 
@@ -36,10 +38,13 @@ const MapView: React.FC = () => {
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [listings, setListings] = useState<BoxListingWithDistance[]>([]);
   const [loadingListings, setLoadingListings] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | 'reconnecting'>('online');
+  const [retryCount, setRetryCount] = useState(0);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   const categories = [
     { id: 'all', name: 'All' },
@@ -53,6 +58,27 @@ const MapView: React.FC = () => {
     { id: 'sports', name: 'Sports' },
     { id: 'other', name: 'Other' },
   ];
+
+  // Network status monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      setConnectionStatus('online');
+      setRetryCount(0);
+      enableFirestoreNetwork();
+    };
+
+    const handleOffline = () => {
+      setConnectionStatus('offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Load Google Maps
   useEffect(() => {
@@ -71,12 +97,20 @@ const MapView: React.FC = () => {
     initializeMaps();
   }, []);
 
-  // Subscribe to listings from Firestore
+  // Subscribe to listings from Firestore with improved error handling
   useEffect(() => {
     setLoadingListings(true);
     
+    // Clean up previous subscription
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+    }
+    
     const unsubscribe = subscribeToListings(
       (firestoreListings) => {
+        setConnectionStatus('online');
+        setRetryCount(0);
+        
         // Process listings to add distance and time info
         const processedListings = firestoreListings.map(listing => {
           let distance = 'Unknown';
@@ -126,12 +160,23 @@ const MapView: React.FC = () => {
       selectedCategory
     );
 
+    unsubscribeRef.current = unsubscribe;
+
     return () => {
       if (unsubscribe) {
         unsubscribe();
       }
     };
   }, [selectedCategory, userLocation]);
+
+  // Cleanup subscription on unmount
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, []);
 
   // Get user's current location
   useEffect(() => {
@@ -283,6 +328,20 @@ const MapView: React.FC = () => {
     }
   };
 
+  const handleRetryConnection = async () => {
+    setConnectionStatus('reconnecting');
+    setRetryCount(prev => prev + 1);
+    
+    try {
+      await enableFirestoreNetwork();
+      // Force a re-subscription
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to reconnect:', error);
+      setConnectionStatus('offline');
+    }
+  };
+
   // Get rating emoji based on rating value
   const getRatingEmoji = (rating: number) => {
     if (rating >= 4.5) return '💎'; // Perfect quality
@@ -350,16 +409,16 @@ const MapView: React.FC = () => {
   const handleRating = async (rating: number) => {
     if (selectedBox && user) {
       try {
-        await addRatingToListing(selectedBox.id!, user.id, rating);
+        await addRatingToListing(selectedBox.id!, user.uid, rating);
         
         // Update local state
         const updatedBox = { ...selectedBox };
-        const existingRatingIndex = updatedBox.ratings.findIndex(r => r.userId === user.id);
+        const existingRatingIndex = updatedBox.ratings.findIndex(r => r.userId === user.uid);
         
         if (existingRatingIndex >= 0) {
-          updatedBox.ratings[existingRatingIndex] = { userId: user.id, rating };
+          updatedBox.ratings[existingRatingIndex] = { userId: user.uid, rating };
         } else {
-          updatedBox.ratings.push({ userId: user.id, rating });
+          updatedBox.ratings.push({ userId: user.uid, rating });
         }
         
         // Recalculate average rating
@@ -410,18 +469,61 @@ const MapView: React.FC = () => {
                 <span className="ml-2 text-sm text-silver/60">(Loading...)</span>
               )}
             </h1>
-            <button
-              onClick={centerOnUserLocation}
-              disabled={loadingLocation}
-              className="btn-secondary p-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loadingLocation ? (
-                <div className="w-5 h-5 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
-              ) : (
-                <Locate className="w-5 h-5" />
-              )}
-            </button>
+            <div className="flex items-center space-x-2">
+              {/* Connection Status Indicator */}
+              <div className="flex items-center space-x-1">
+                {connectionStatus === 'online' ? (
+                  <Wifi className="w-4 h-4 text-green-400" title="Connected" />
+                ) : connectionStatus === 'reconnecting' ? (
+                  <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" title="Reconnecting..." />
+                ) : (
+                  <button
+                    onClick={handleRetryConnection}
+                    className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors"
+                    title="Connection lost - Click to retry"
+                  >
+                    <WifiOff className="w-4 h-4" />
+                    {retryCount > 0 && <span className="text-xs">({retryCount})</span>}
+                  </button>
+                )}
+              </div>
+              
+              <button
+                onClick={centerOnUserLocation}
+                disabled={loadingLocation}
+                className="btn-secondary p-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingLocation ? (
+                  <div className="w-5 h-5 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                ) : (
+                  <Locate className="w-5 h-5" />
+                )}
+              </button>
+            </div>
           </div>
+          
+          {/* Connection Status Banner */}
+          {connectionStatus === 'offline' && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <WifiOff className="w-4 h-4 text-red-400" />
+                <span className="text-red-400 text-sm">Connection lost. Some features may not work.</span>
+              </div>
+              <button
+                onClick={handleRetryConnection}
+                className="text-red-400 hover:text-red-300 text-sm underline"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          
+          {connectionStatus === 'reconnecting' && (
+            <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg flex items-center space-x-2">
+              <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin"></div>
+              <span className="text-yellow-400 text-sm">Reconnecting to server...</span>
+            </div>
+          )}
           
           {/* Search */}
           <div className="relative mb-4">
@@ -496,6 +598,11 @@ const MapView: React.FC = () => {
                 : 'Be the first to add a box to your community!'
               }
             </p>
+            {connectionStatus === 'offline' && (
+              <p className="text-red-400 text-sm mt-2">
+                You're offline. Some listings may not be visible.
+              </p>
+            )}
           </div>
         ) : (
           filteredBoxes.map((box) => (
@@ -613,7 +720,7 @@ const MapView: React.FC = () => {
                     How would you rate the quality and accuracy of this listing?
                   </p>
                   {renderInteractiveRating(
-                    selectedBox.ratings.find(r => r.userId === user.id)?.rating || 0, 
+                    selectedBox.ratings.find(r => r.userId === user.uid)?.rating || 0, 
                     handleRating
                   )}
                   <div className="flex justify-center space-x-2 mt-4">
@@ -631,15 +738,17 @@ const MapView: React.FC = () => {
                     <button 
                       onClick={() => setShowRating(true)}
                       className="btn-primary flex-1 flex items-center justify-center space-x-2"
+                      disabled={connectionStatus === 'offline'}
                     >
                       <span>{getRatingEmoji(5)}</span>
                       <span>Rate Box</span>
                     </button>
                   )}
-                  {user && user.id !== selectedBox.userId && (
+                  {user && user.uid !== selectedBox.userId && (
                     <button 
                       onClick={handleMarkAsTaken}
                       className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+                      disabled={connectionStatus === 'offline'}
                     >
                       <Camera className="w-4 h-4" />
                       <span>Mark Taken</span>
@@ -649,7 +758,10 @@ const MapView: React.FC = () => {
               )}
               
               {user && (
-                <button className="btn-primary w-full flex items-center justify-center space-x-2">
+                <button 
+                  className="btn-primary w-full flex items-center justify-center space-x-2"
+                  disabled={connectionStatus === 'offline'}
+                >
                   <MessageCircle className="w-4 h-4" />
                   <span>Leave Comment</span>
                 </button>
@@ -658,6 +770,14 @@ const MapView: React.FC = () => {
               {!user && (
                 <div className="text-center p-4 bg-dark-blue-light rounded-lg border border-silver/30">
                   <p className="text-silver text-sm">Sign in to rate boxes and leave comments</p>
+                </div>
+              )}
+
+              {connectionStatus === 'offline' && (
+                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-red-400 text-sm text-center">
+                    You're offline. Some actions are disabled.
+                  </p>
                 </div>
               )}
             </div>
