@@ -219,6 +219,23 @@ const AddListing: React.FC = () => {
     setSubmitError(null);
     
     try {
+      // Ensure we have all required user fields
+      const userId = user.uid || user.id;
+      const userEmail = user.email;
+      const username = user.username;
+
+      if (!userId) {
+        throw new Error('User ID is missing. Please sign out and sign in again.');
+      }
+
+      if (!userEmail) {
+        throw new Error('User email is missing. Please sign out and sign in again.');
+      }
+
+      if (!username) {
+        throw new Error('Username is missing. Please update your profile.');
+      }
+
       const listingData: BoxListingInput = {
         title: formData.title || 'Untitled Box', // Default title if empty
         description: formData.description || 'No description provided', // Default description
@@ -229,9 +246,9 @@ const AddListing: React.FC = () => {
           coordinates: formData.coordinates,
         },
         isSpotted: formData.isSpotted,
-        userId: user.uid,
-        userEmail: user.email,
-        username: user.username,
+        userId: userId,
+        userEmail: userEmail,
+        username: username,
       };
 
       console.log('[CURRENT USER]', user);
@@ -267,6 +284,12 @@ const AddListing: React.FC = () => {
         setSubmitError('Permission denied. Please check your Firestore security rules.');
       } else if (error.message.includes('Firestore is currently unavailable')) {
         setSubmitError('Service temporarily unavailable. Please try again in a few moments.');
+      } else if (error.message.includes('User ID is missing')) {
+        setSubmitError('Authentication error. Please sign out and sign in again.');
+      } else if (error.message.includes('User email is missing')) {
+        setSubmitError('Email missing from profile. Please sign out and sign in again.');
+      } else if (error.message.includes('Username is missing')) {
+        setSubmitError('Username missing from profile. Please update your profile first.');
       } else {
         setSubmitError(error.message || 'Failed to create listing. Please try again.');
       }
