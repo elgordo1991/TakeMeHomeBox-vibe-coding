@@ -223,20 +223,21 @@ const AddListing: React.FC = () => {
     setSubmitError(null);
     
     try {
-      const listingData: BoxListingInput = {
-        title: formData.title,
-        description: formData.description,
-        category: formData.category.toLowerCase(),
-        images: formData.images,
-        location: {
-          address: formData.location,
-          coordinates: formData.coordinates,
-        },
-        isSpotted: formData.isSpotted,
-        userId: user.uid,
-        userEmail: user.email,
-        username: user.username,
-      };
+  const listingData: BoxListingInput = {
+    title: formData.title,
+    description: formData.description,
+    category: formData.category.toLowerCase(),
+    images: formData.images,
+    location: {
+      address: formData.location,
+      coordinates: formData.coordinates,
+    },
+    isSpotted: formData.isSpotted,
+    userId: user.uid || user.id,
+    userEmail: user.email,
+    username: user.username,
+  };
+
 
 console.log('[CURRENT USER]', user);
 console.log('[UID]', user?.uid);
