@@ -28,7 +28,7 @@ const Profile: React.FC = () => {
     
     setLoadingListings(true);
     try {
-      const listings = await getUserListings(user.id);
+      const listings = await getUserListings(user.uid);
       setUserListings(listings);
     } catch (error) {
       console.error('Error loading user listings:', error);
@@ -37,11 +37,16 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (user && updateProfile) {
-      updateProfile(editData);
+      try {
+        await updateProfile(editData);
+        setIsEditing(false);
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        alert('Failed to update profile. Please try again.');
+      }
     }
-    setIsEditing(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -51,15 +56,25 @@ const Profile: React.FC = () => {
     });
   };
 
-  const handleAvatarUpload = (imageUrl: string) => {
+  const handleAvatarUpload = async (imageUrl: string) => {
     if (user && updateProfile) {
-      updateProfile({ avatar: imageUrl });
+      try {
+        await updateProfile({ avatar: imageUrl });
+      } catch (error) {
+        console.error('Error updating avatar:', error);
+        alert('Failed to update avatar. Please try again.');
+      }
     }
   };
 
-  const handleAvatarRemove = () => {
+  const handleAvatarRemove = async () => {
     if (user && updateProfile) {
-      updateProfile({ avatar: '' });
+      try {
+        await updateProfile({ avatar: '' });
+      } catch (error) {
+        console.error('Error removing avatar:', error);
+        alert('Failed to remove avatar. Please try again.');
+      }
     }
   };
 

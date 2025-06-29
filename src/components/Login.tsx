@@ -64,8 +64,7 @@ const Login: React.FC = () => {
             callback: handleGoogleSignIn,
             auto_select: false,
             cancel_on_tap_outside: true,
-            ux_mode: 'redirect', // Use redirect instead of popup to avoid blocking
-            redirect_uri: window.location.origin, // Set current origin as redirect URI
+            ux_mode: 'popup',
           });
 
           window.google.accounts.id.renderButton(buttonEl, {
@@ -74,7 +73,7 @@ const Login: React.FC = () => {
             width: "100%",
             text: isLogin ? "signin_with" : "signup_with",
             shape: "rectangular",
-            type: "standard", // Use standard button type for better compatibility
+            type: "standard",
           });
 
           setGoogleLoaded(true);

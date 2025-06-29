@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth } from '../firebase.config';
+import { auth, db } from '../firebase.config';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -10,9 +10,11 @@ import {
   updateProfile as updateFirebaseProfile,
   User as FirebaseUser,
 } from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
 interface User {
   id: string;
+  uid: string;
   username: string;
   email: string;
   bio?: string;
@@ -31,7 +33,7 @@ interface AuthContextType {
   signup: (userData: Partial<User> & { password: string }) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (updates: Partial<User>) => void;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -48,12 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Create user profile from Firebase user
-  const createUserProfile = (firebaseUser: FirebaseUser, additionalData?: Partial<User>): User => {
+  // Create user profile in Firestore
+  const createUserProfile = async (firebaseUser: FirebaseUser, additionalData?: Partial<User>): Promise<User> => {
     const now = new Date().toISOString();
     
-    return {
+    const userProfile: User = {
       id: firebaseUser.uid,
+      uid: firebaseUser.uid,
       username: additionalData?.username || firebaseUser.displayName || firebaseUser.email!.split('@')[0],
       email: firebaseUser.email || '',
       bio: additionalData?.bio || '',
@@ -65,59 +68,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastActive: now,
       ...additionalData,
     };
-  };
 
-  // Save user profile to localStorage
-  const saveUserProfile = (userProfile: User) => {
-    localStorage.setItem(`user_${userProfile.id}`, JSON.stringify(userProfile));
-    localStorage.setItem('currentUser', JSON.stringify(userProfile));
-  };
-
-  // Load user profile from localStorage
-  const loadUserProfile = (userId: string): User | null => {
     try {
-      const storedData = localStorage.getItem(`user_${userId}`);
-      return storedData ? JSON.parse(storedData) : null;
+      // Save to Firestore
+      await setDoc(doc(db, 'users', firebaseUser.uid), userProfile);
+      console.log('✅ User profile created in Firestore');
+    } catch (error) {
+      console.error('❌ Error creating user profile:', error);
+    }
+
+    return userProfile;
+  };
+
+  // Load user profile from Firestore
+  const loadUserProfile = async (userId: string): Promise<User | null> => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as User;
+        // Update last active
+        await updateDoc(doc(db, 'users', userId), {
+          lastActive: new Date().toISOString()
+        });
+        return { ...userData, lastActive: new Date().toISOString() };
+      }
+      return null;
     } catch (error) {
       console.error('Error loading user profile:', error);
       return null;
     }
   };
 
-  // Update last active timestamp
-  const updateLastActive = (userProfile: User) => {
-    const updatedProfile = {
-      ...userProfile,
-      lastActive: new Date().toISOString(),
-    };
-    saveUserProfile(updatedProfile);
-    return updatedProfile;
-  };
-
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Load existing profile or create new one
-        let profile = loadUserProfile(firebaseUser.uid);
-        
-        if (profile) {
-          // Update existing profile with latest Firebase data
-          profile = {
-            ...profile,
-            email: firebaseUser.email || profile.email,
-            avatar: firebaseUser.photoURL || profile.avatar,
-          };
-          profile = updateLastActive(profile);
-        } else {
-          // Create new profile
-          profile = createUserProfile(firebaseUser);
-          saveUserProfile(profile);
+        try {
+          // Load existing profile or create new one
+          let profile = await loadUserProfile(firebaseUser.uid);
+          
+          if (!profile) {
+            // Create new profile
+            profile = await createUserProfile(firebaseUser);
+          }
+          
+          setUser(profile);
+        } catch (error) {
+          console.error('Error handling auth state change:', error);
+          setUser(null);
         }
-        
-        setUser(profile);
       } else {
         setUser(null);
-        localStorage.removeItem('currentUser');
       }
       setLoading(false);
     });
@@ -130,14 +130,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = result.user;
       
-      // Load or create user profile
-      let profile = loadUserProfile(firebaseUser.uid);
+      // Load user profile
+      let profile = await loadUserProfile(firebaseUser.uid);
       
-      if (profile) {
-        profile = updateLastActive(profile);
-      } else {
-        profile = createUserProfile(firebaseUser);
-        saveUserProfile(profile);
+      if (!profile) {
+        profile = await createUserProfile(firebaseUser);
       }
       
       setUser(profile);
@@ -164,8 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Create and save user profile
-      const profile = createUserProfile(firebaseUser, userData);
-      saveUserProfile(profile);
+      const profile = await createUserProfile(firebaseUser, userData);
       setUser(profile);
     } catch (error: any) {
       console.error('Signup error:', error);
@@ -180,20 +176,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const firebaseUser = result.user;
       
       // Load existing profile or create new one
-      let profile = loadUserProfile(firebaseUser.uid);
+      let profile = await loadUserProfile(firebaseUser.uid);
       
-      if (profile) {
-        // Update existing profile
-        profile = {
-          ...profile,
-          email: firebaseUser.email || profile.email,
-          avatar: firebaseUser.photoURL || profile.avatar,
-        };
-        profile = updateLastActive(profile);
-      } else {
+      if (!profile) {
         // Create new profile for Google user
-        profile = createUserProfile(firebaseUser);
-        saveUserProfile(profile);
+        profile = await createUserProfile(firebaseUser);
       }
       
       setUser(profile);
@@ -207,22 +194,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signOut(auth);
       setUser(null);
-      localStorage.removeItem('currentUser');
     } catch (error: any) {
       console.error('Logout error:', error);
       throw error;
     }
   };
 
-  const updateProfile = (updates: Partial<User>) => {
+  const updateProfile = async (updates: Partial<User>) => {
     if (user) {
-      const updatedUser = {
-        ...user,
-        ...updates,
-        lastActive: new Date().toISOString(),
-      };
-      setUser(updatedUser);
-      saveUserProfile(updatedUser);
+      try {
+        const updatedUser = {
+          ...user,
+          ...updates,
+          lastActive: new Date().toISOString(),
+        };
+        
+        // Update in Firestore
+        await updateDoc(doc(db, 'users', user.uid), updatedUser);
+        setUser(updatedUser);
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+      }
     }
   };
 
