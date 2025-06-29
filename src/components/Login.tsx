@@ -64,6 +64,8 @@ const Login: React.FC = () => {
             callback: handleGoogleSignIn,
             auto_select: false,
             cancel_on_tap_outside: true,
+            ux_mode: 'redirect', // Use redirect instead of popup to avoid blocking
+            redirect_uri: window.location.origin, // Set current origin as redirect URI
           });
 
           window.google.accounts.id.renderButton(buttonEl, {
@@ -72,6 +74,7 @@ const Login: React.FC = () => {
             width: "100%",
             text: isLogin ? "signin_with" : "signup_with",
             shape: "rectangular",
+            type: "standard", // Use standard button type for better compatibility
           });
 
           setGoogleLoaded(true);
@@ -196,6 +199,8 @@ const Login: React.FC = () => {
         setError('Password is too weak. Please choose a stronger password.');
       } else if (error.code === 'auth/invalid-email') {
         setError('Please enter a valid email address.');
+      } else if (error.code === 'auth/invalid-credential') {
+        setError('Invalid email or password. Please check your credentials and try again.');
       } else {
         setError(error.message || 'Authentication failed. Please try again.');
       }
@@ -227,8 +232,19 @@ const Login: React.FC = () => {
   };
 
   const handleGoogleFallback = () => {
+    // Try to trigger Google One Tap or redirect flow
     if (window.google && window.google.accounts && window.google.accounts.id) {
-      window.google.accounts.id.prompt();
+      try {
+        // Use redirect flow as fallback
+        window.google.accounts.id.prompt((notification: any) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            // If One Tap is not available, show a message to use email login
+            setError('Google Sign-In is temporarily unavailable. Please use email login or try refreshing the page.');
+          }
+        });
+      } catch (error) {
+        setError('Google Sign-In is not available. Please use email login or try refreshing the page.');
+      }
     } else {
       setError('Google Sign-In is not available. Please use email login or try refreshing the page.');
     }
