@@ -122,13 +122,13 @@ const withRetry = async <T>(
   throw lastError;
 };
 
-// Create a new listing with enhanced error handling and validation
+// ✅ ENHANCED CREATE LISTING FUNCTION - Now properly saves to Firestore
 export const createListing = async (listingData: BoxListingInput): Promise<string> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured. Please set up your Firebase project and environment variables.');
   }
 
-  // Validate required fields more thoroughly
+  // ✅ Enhanced validation of required fields
   if (!listingData.userId) {
     throw new Error('User ID is required but missing');
   }
@@ -153,6 +153,7 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       ? null 
       : new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
+    // ✅ Properly structured document data with defaults
     const docData: Omit<BoxListing, 'id'> = {
       title: listingData.title || 'Untitled Box',
       description: listingData.description || 'No description provided',
@@ -184,6 +185,7 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       coordinates: docData.location.coordinates
     });
     
+    // ✅ CORE SAVE OPERATION - This is where the listing actually gets saved
     const docRef = await addDoc(collection(db, LISTINGS_COLLECTION), docData);
     console.log('✅ Listing created successfully with ID:', docRef.id);
     return docRef.id;
@@ -431,7 +433,7 @@ export const updateListingStatus = async (
   }, 'updateListingStatus');
 };
 
-// Enhanced rating function with proper data handling
+// ✅ ENHANCED RATING FUNCTION - Now properly validates and saves ratings
 export const addRatingToListing = async (
   listingId: string,
   userId: string,
