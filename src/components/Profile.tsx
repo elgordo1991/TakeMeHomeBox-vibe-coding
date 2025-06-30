@@ -11,7 +11,7 @@ const Profile: React.FC = () => {
   const [notifications, setNotifications] = useState(true);
   const [userListings, setUserListings] = useState<BoxListing[]>([]);
   const [loadingListings, setLoadingListings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'active' | 'taken' | 'expired'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'expired'>('active');
 
   useEffect(() => {
     if (user) {
@@ -208,7 +208,11 @@ const Profile: React.FC = () => {
   const ratingEmoji = getRatingEmoji(user.rating);
   const totalActivity = (user.itemsGiven || 0) + (user.itemsTaken || 0);
 
-  const filteredListings = userListings.filter(listing => listing.status === activeTab);
+  // ✅ UPDATED: Filter listings to exclude 'taken' status
+  const filteredListings = userListings.filter(listing => {
+    // Only show active and expired listings, ignore taken listings
+    return listing.status === activeTab;
+  });
 
   return (
     <div className="min-h-screen bg-deep-blue">
@@ -457,11 +461,10 @@ const Profile: React.FC = () => {
             </h3>
           </div>
 
-          {/* Listing Status Tabs */}
+          {/* ✅ UPDATED: Listing Status Tabs - Removed 'taken' tab */}
           <div className="flex border-b border-silver/30">
             {[
               { key: 'active', label: 'Active', count: userListings.filter(l => l.status === 'active').length },
-              { key: 'taken', label: 'Taken', count: userListings.filter(l => l.status === 'taken').length },
               { key: 'expired', label: 'Expired', count: userListings.filter(l => l.status === 'expired').length },
             ].map((tab) => (
               <button
@@ -489,8 +492,7 @@ const Profile: React.FC = () => {
               <div className="p-6 text-center">
                 <div className="text-4xl mb-2">📦</div>
                 <p className="text-silver text-sm">
-                  {activeTab === 'active' ? 'No active listings' : 
-                   activeTab === 'taken' ? 'No taken listings' : 'No expired listings'}
+                  {activeTab === 'active' ? 'No active listings' : 'No expired listings'}
                 </p>
               </div>
             ) : (
