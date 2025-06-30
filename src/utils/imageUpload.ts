@@ -83,6 +83,8 @@ const isStorageConfigured = () => {
 
 // Upload image to Firebase Storage or fallback to local storage
 export const uploadImage = async (file: File, folder: string = 'listings'): Promise<string> => {
+  console.log('🟡 Starting image upload:', file.name);
+  
   // Validate file
   const validation = validateImageFile(file);
   if (!validation.valid) {
@@ -103,18 +105,29 @@ export const uploadImage = async (file: File, folder: string = 'listings'): Prom
       
       // Upload file
       console.log(`📤 Uploading to Firebase Storage: ${folder}/${filename}`);
-      const snapshot = await uploadBytes(storageRef, file);
+      await uploadBytes(storageRef, file);
+      console.log('✅ Upload successful');
       
       // Get download URL
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      console.log('✅ Image uploaded to Firebase Storage:', downloadURL);
+      const url = await getDownloadURL(storageRef);
+      console.log('📸 Image URL:', url);
       
-      return downloadURL;
+      return url;
     } catch (error: any) {
       console.error('❌ Firebase Storage upload failed:', error);
       
       if (error.code === 'storage/unauthorized') {
         console.error('Storage permission denied. Check your Firebase Storage rules.');
+      } else if (error.code === 'storage/quota-exceeded') {
+        console.error('Storage quota exceeded. Please check your Firebase plan.');
+      } else if (error.code === 'storage/unauthenticated') {
+        console.error('Authentication required for storage upload.');
+      } else if (error.code === 'storage/retry-limit-exceeded') {
+        console.error('Upload retry limit exceeded. Please try again later.');
+      } else if (error.code === 'storage/invalid-format') {
+        console.error('Invalid file format for upload.');
+      } else {
+        console.error('Unknown storage error:', error.message);
       }
       
       // Fall back to local storage
@@ -123,9 +136,10 @@ export const uploadImage = async (file: File, folder: string = 'listings'): Prom
   }
 
   // Fallback to local storage (existing implementation)
-  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-
   try {
+    console.log('🟡 Using local storage fallback for:', file.name);
+    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+
     const resizedImage = await resizeImage(file);
     
     // Generate a unique filename
@@ -137,10 +151,14 @@ export const uploadImage = async (file: File, folder: string = 'listings'): Prom
     // Store in localStorage for persistence
     localStorage.setItem(`uploaded_image_${filename}`, resizedImage);
     
+    console.log('✅ Local storage upload successful');
+    console.log('📸 Local Image URL:', `local://${filename}`);
+    
     // Return the "URL"
     return `local://${filename}`;
-  } catch (error) {
-    throw new Error('Failed to process image');
+  } catch (error: any) {
+    console.error('❌ Local storage upload failed:', error);
+    throw new Error('Failed to process image: ' + error.message);
   }
 };
 
@@ -164,12 +182,28 @@ export const getImageUrl = (path: string): string => {
 
 // Upload multiple images
 export const uploadMultipleImages = async (files: File[], folder: string = 'listings'): Promise<string[]> => {
-  const uploadPromises = files.map(file => uploadImage(file, folder));
-  return Promise.all(uploadPromises);
+  console.log(`🟡 Starting batch upload of ${files.length} images`);
+  
+  try {
+    const uploadPromises = files.map((file, index) => {
+      console.log(`📤 Queuing upload ${index + 1}/${files.length}:`, file.name);
+      return uploadImage(file, folder);
+    });
+    
+    const results = await Promise.all(uploadPromises);
+    console.log(`✅ Batch upload completed: ${results.length} images uploaded successfully`);
+    
+    return results;
+  } catch (error: any) {
+    console.error('❌ Batch upload failed:', error);
+    throw new Error('Failed to upload multiple images: ' + error.message);
+  }
 };
 
 // Delete uploaded image
 export const deleteImage = async (path: string): Promise<void> => {
+  console.log('🟡 Starting image deletion:', path);
+  
   // Handle Firebase Storage URLs
   if (path.startsWith('http') && isStorageConfigured()) {
     try {
@@ -177,15 +211,26 @@ export const deleteImage = async (path: string): Promise<void> => {
       await deleteObject(storageRef);
       console.log('✅ Image deleted from Firebase Storage');
       return;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error deleting from Firebase Storage:', error);
+      
+      if (error.code === 'storage/object-not-found') {
+        console.warn('Image not found in storage (may have been already deleted)');
+      } else if (error.code === 'storage/unauthorized') {
+        console.error('Permission denied for image deletion');
+      }
     }
   }
   
   // Handle local storage
   if (path.startsWith('local://')) {
-    const filename = path.replace('local://', '');
-    localStorage.removeItem(`uploaded_image_${filename}`);
+    try {
+      const filename = path.replace('local://', '');
+      localStorage.removeItem(`uploaded_image_${filename}`);
+      console.log('✅ Image deleted from local storage');
+    } catch (error: any) {
+      console.error('❌ Error deleting from local storage:', error);
+    }
   }
   
   await new Promise(resolve => setTimeout(resolve, 500));
