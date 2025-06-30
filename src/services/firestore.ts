@@ -19,7 +19,8 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
-  arrayUnion
+  arrayUnion,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
 
@@ -436,55 +437,50 @@ export const updateListingStatus = async (
 // ✅ ENHANCED RATING FUNCTION - Now properly validates and saves ratings
 export const addRatingToListing = async (
   listingId: string,
+  ratingValue: number,
   userId: string,
-  rating: number,
   comment?: string
 ): Promise<void> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }
 
-  if (!listingId || !userId || !rating) {
+  if (!listingId || !userId || !ratingValue) {
     throw new Error('Missing required parameters for rating');
   }
 
-  if (rating < 1 || rating > 5) {
+  if (ratingValue < 1 || ratingValue > 5) {
     throw new Error('Rating must be between 1 and 5');
   }
 
   return withRetry(async () => {
-    const listingRef = doc(db, LISTINGS_COLLECTION, listingId);
+    const ref = doc(db, LISTINGS_COLLECTION, listingId);
+    const snap = await getDoc(ref);
     
-    // Get current listing to update ratings array
-    const listingDoc = await getDocs(query(
-      collection(db, LISTINGS_COLLECTION),
-      where('__name__', '==', listingId)
-    ));
-    
-    if (!listingDoc.empty) {
-      const currentData = listingDoc.docs[0].data() as BoxListing;
-      const existingRatings = currentData.ratings || [];
-      
-      // Remove existing rating from this user if any
-      const filteredRatings = existingRatings.filter(r => r.userId !== userId);
-      
-      // Add new rating
-      const newRating = { userId, rating, ...(comment && { comment }) };
-      const newRatings = [...filteredRatings, newRating];
-      
-      // Calculate new average rating
-      const averageRating = newRatings.reduce((sum, r) => sum + r.rating, 0) / newRatings.length;
-      
-      await updateDoc(listingRef, {
-        ratings: newRatings,
-        rating: Math.round(averageRating * 10) / 10,
-        updatedAt: serverTimestamp(),
-      });
-      
-      console.log(`✅ Rating added to listing ${listingId}: ${rating}/5`);
-    } else {
+    if (!snap.exists()) {
       throw new Error('Listing not found');
     }
+
+    const data = snap.data();
+    const ratings = data.ratings || [];
+
+    // Remove existing rating from this user if any
+    const filteredRatings = ratings.filter((r: any) => r.userId !== userId);
+    
+    // Add new rating
+    const newRating = { userId, rating: ratingValue, ...(comment && { comment }) };
+    const newRatings = [...filteredRatings, newRating];
+
+    // Compute new average
+    const avg = newRatings.reduce((sum, r) => sum + (r.rating || 0), 0) / newRatings.length;
+
+    await updateDoc(ref, {
+      ratings: newRatings,
+      rating: parseFloat(avg.toFixed(2)), // ✅ saves updated average
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log(`✅ Rating added to listing ${listingId}: ${ratingValue}/5 (new avg: ${avg.toFixed(2)})`);
   }, 'addRatingToListing');
 };
 
