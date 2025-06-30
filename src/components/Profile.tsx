@@ -625,7 +625,7 @@ const Profile: React.FC = () => {
             >
               <LogOut className="w-5 h-5" />
               <span>Sign Out</span>
-            </div>
+            </button>
           </div>
         </div>
       </div>
