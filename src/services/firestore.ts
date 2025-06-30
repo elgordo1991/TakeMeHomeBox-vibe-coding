@@ -123,30 +123,19 @@ const withRetry = async <T>(
   throw lastError;
 };
 
-// ✅ ENHANCED CREATE LISTING FUNCTION - Now properly saves to Firestore
-export const createListing = async (listingData: BoxListingInput): Promise<string> => {
+// ✅ FULLY LOGGED CREATE LISTING FUNCTION
+export async function createListing(listingData: BoxListingInput): Promise<string> {
+  console.log('[📤 Firestore] Attempting to save listing:', listingData);
+  
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured. Please set up your Firebase project and environment variables.');
   }
 
-  // ✅ Enhanced validation of required fields
-  if (!listingData.userId) {
-    throw new Error('User ID is required but missing');
-  }
-  
-  if (!listingData.userEmail) {
-    throw new Error('User email is required but missing');
-  }
-  
-  if (!listingData.username) {
-    throw new Error('Username is required but missing');
-  }
-
-  if (!listingData.location?.coordinates) {
-    throw new Error('Location coordinates are required');
-  }
-
-  return withRetry(async () => {
+  try {
+    if (!listingData.userId) throw new Error('Missing userId in listingData');
+    if (!listingData.location?.coordinates) throw new Error('Missing location coordinates');
+    
+    // Convert input data to Firestore format
     const now = serverTimestamp();
     
     // Calculate expiry date (48 hours from now for non-spotted items)
@@ -154,8 +143,7 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       ? null 
       : new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
-    // ✅ Properly structured document data with defaults
-    const docData: Omit<BoxListing, 'id'> = {
+    const docData = {
       title: listingData.title || 'Untitled Box',
       description: listingData.description || 'No description provided',
       category: listingData.category || 'other',
@@ -179,19 +167,16 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       ...(expiresAt && { expiresAt: Timestamp.fromDate(expiresAt) }),
     };
 
-    console.log('📝 Creating listing:', { 
-      title: docData.title, 
-      category: docData.category,
-      userId: docData.userId,
-      coordinates: docData.location.coordinates
-    });
-    
-    // ✅ CORE SAVE OPERATION - This is where the listing actually gets saved
-    const docRef = await addDoc(collection(db, LISTINGS_COLLECTION), docData);
-    console.log('✅ Listing created successfully with ID:', docRef.id);
+    console.log('[📝 Firestore] Formatted document data:', docData);
+
+    const docRef = await addDoc(collection(db, 'listings'), docData);
+    console.log('[✅ Firestore] Listing saved with ID:', docRef.id);
     return docRef.id;
-  }, 'createListing');
-};
+  } catch (error) {
+    console.error('[❌ Firestore] Failed to save listing:', error);
+    throw error;
+  }
+}
 
 // Get all active listings with caching
 export const getActiveListings = async (): Promise<BoxListing[]> => {
