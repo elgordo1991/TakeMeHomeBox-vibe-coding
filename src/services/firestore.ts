@@ -20,7 +20,8 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
   arrayUnion,
-  getDoc
+  getDoc,
+  increment
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
 
@@ -73,6 +74,7 @@ export interface BoxListingInput {
 
 // Collections
 const LISTINGS_COLLECTION = 'listings';
+const USERS_COLLECTION = 'users';
 
 // Connection state management
 let connectionState: 'connected' | 'disconnected' | 'reconnecting' = 'connected';
@@ -133,7 +135,7 @@ const withRetry = async <T>(
   throw lastError;
 };
 
-// ✅ FULLY LOGGED CREATE LISTING FUNCTION
+// ✅ ENHANCED CREATE LISTING FUNCTION - Now updates user's itemsGiven count
 export async function createListing(listingData: BoxListingInput): Promise<string> {
   console.log('[📤 Firestore] Attempting to save listing:', listingData);
   
@@ -180,8 +182,34 @@ export async function createListing(listingData: BoxListingInput): Promise<strin
 
     console.log('[📝 Firestore] Formatted document data:', docData);
 
-    const docRef = await addDoc(collection(db, 'listings'), docData);
+    // Create the listing
+    const docRef = await addDoc(collection(db, LISTINGS_COLLECTION), docData);
     console.log('[✅ Firestore] Listing saved with ID:', docRef.id);
+
+    // ✅ NEW: Update user's itemsGiven count
+    try {
+      console.log('[📊 Firestore] Updating user itemsGiven count for userId:', listingData.userId);
+      
+      await updateDoc(doc(db, USERS_COLLECTION, listingData.userId), {
+        itemsGiven: increment(1),
+        lastActive: serverTimestamp()
+      });
+      
+      console.log('[✅ Firestore] User itemsGiven count incremented successfully');
+    } catch (userUpdateError: any) {
+      console.error('[⚠️ Firestore] Failed to update user itemsGiven count:', userUpdateError);
+      
+      // Don't fail the entire operation if user update fails
+      // The listing was created successfully, so we'll just log the warning
+      if (userUpdateError.code === 'not-found') {
+        console.warn('[⚠️ Firestore] User document not found. User profile may need to be recreated.');
+      } else if (userUpdateError.code === 'permission-denied') {
+        console.warn('[⚠️ Firestore] Permission denied updating user profile. Check Firestore security rules.');
+      } else {
+        console.warn('[⚠️ Firestore] Unknown error updating user profile:', userUpdateError.message);
+      }
+    }
+
     return docRef.id;
   } catch (error) {
     console.error('[❌ Firestore] Failed to save listing:', error);
