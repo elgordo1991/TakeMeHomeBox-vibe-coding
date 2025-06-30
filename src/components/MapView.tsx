@@ -43,6 +43,8 @@ const MapView: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | 'reconnecting'>('online');
   const [retryCount, setRetryCount] = useState(0);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -415,7 +417,8 @@ const MapView: React.FC = () => {
               onClick={() => onRate(option.value)}
               onMouseEnter={() => setHoverRating(option.value)}
               onMouseLeave={() => setHoverRating(0)}
-              className={`text-3xl transition-all duration-200 hover:scale-110 active:animate-press-down p-2 rounded-lg ${
+              disabled={ratingLoading}
+              className={`text-3xl transition-all duration-200 hover:scale-110 active:animate-press-down p-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
                 option.value <= (hoverRating || currentRating) 
                   ? 'bg-dark-blue-light border border-silver/50' 
                   : 'opacity-50 hover:opacity-100'
@@ -436,38 +439,95 @@ const MapView: React.FC = () => {
             }
           </p>
         </div>
+        
+        {ratingError && (
+          <div className="text-center">
+            <p className="text-red-400 text-sm">{ratingError}</p>
+          </div>
+        )}
+        
+        {ratingLoading && (
+          <div className="text-center">
+            <div className="w-4 h-4 border-2 border-silver/30 border-t-silver rounded-full animate-spin mx-auto"></div>
+            <p className="text-silver/60 text-sm mt-1">Saving rating...</p>
+          </div>
+        )}
       </div>
     );
   };
 
   const handleRating = async (rating: number) => {
-    if (selectedBox && user) {
-      try {
-        await addRatingToListing(selectedBox.id!, rating, user.uid);
-        
-        // Update local state
-        const updatedBox = { ...selectedBox };
-        const existingRatingIndex = updatedBox.ratings.findIndex(r => r.userId === user.uid);
-        
-        if (existingRatingIndex >= 0) {
-          updatedBox.ratings[existingRatingIndex] = { userId: user.uid, rating };
-        } else {
-          updatedBox.ratings.push({ userId: user.uid, rating });
-        }
-        
-        // Recalculate average rating
-        const averageRating = updatedBox.ratings.reduce((sum, r) => sum + r.rating, 0) / updatedBox.ratings.length;
-        updatedBox.rating = Math.round(averageRating * 10) / 10;
-        
-        setSelectedBox(updatedBox);
-        setShowRating(false);
-        
-        const ratingLabel = getRatingEmoji(rating);
-        alert(`Thanks for rating! You gave ${ratingLabel} (${rating}/5).`);
-      } catch (error) {
-        console.error('Error adding rating:', error);
-        alert('Failed to add rating. Please try again.');
+    if (!selectedBox || !user) {
+      setRatingError('Authentication required to rate');
+      return;
+    }
+
+    if (!selectedBox.id) {
+      setRatingError('Invalid listing ID');
+      return;
+    }
+
+    console.log('🟡 Attempting to rate listing:', {
+      listingId: selectedBox.id,
+      rating: rating,
+      userId: user.uid,
+      username: user.username
+    });
+
+    setRatingLoading(true);
+    setRatingError(null);
+
+    try {
+      // Call with correct parameter order: listingId, rating, userId
+      await addRatingToListing(selectedBox.id, rating, user.uid);
+      
+      // Update local state immediately for better UX
+      const updatedBox = { ...selectedBox };
+      const existingRatingIndex = updatedBox.ratings.findIndex(r => r.userId === user.uid);
+      
+      if (existingRatingIndex >= 0) {
+        updatedBox.ratings[existingRatingIndex] = { userId: user.uid, rating };
+      } else {
+        updatedBox.ratings.push({ userId: user.uid, rating });
       }
+      
+      // Recalculate average rating
+      const averageRating = updatedBox.ratings.reduce((sum, r) => sum + r.rating, 0) / updatedBox.ratings.length;
+      updatedBox.rating = Math.round(averageRating * 10) / 10;
+      
+      setSelectedBox(updatedBox);
+      setShowRating(false);
+      setHoverRating(0);
+      
+      console.log('✅ Rating saved successfully');
+      
+      // Show success feedback
+      const ratingLabel = getRatingEmoji(rating);
+      setTimeout(() => {
+        alert(`Thanks for rating! You gave ${ratingLabel} (${rating}/5).`);
+      }, 100);
+      
+    } catch (error: any) {
+      console.error('❌ Error adding rating:', error);
+      
+      // Provide specific error messages
+      if (error.message.includes('Missing required parameters')) {
+        setRatingError('Invalid rating data. Please try again.');
+      } else if (error.message.includes('Rating must be between 1 and 5')) {
+        setRatingError('Please select a valid rating (1-5).');
+      } else if (error.message.includes('Listing not found')) {
+        setRatingError('This listing no longer exists.');
+      } else if (error.code === 'permission-denied') {
+        setRatingError('Permission denied. Please check your authentication.');
+      } else if (error.code === 'unauthenticated') {
+        setRatingError('Please sign in to rate listings.');
+      } else if (error.code === 'unavailable') {
+        setRatingError('Service temporarily unavailable. Please try again.');
+      } else {
+        setRatingError(error.message || 'Failed to save rating. Please try again.');
+      }
+    } finally {
+      setRatingLoading(false);
     }
   };
 
@@ -709,6 +769,8 @@ const MapView: React.FC = () => {
                       setSelectedBox(null);
                       setShowRating(false);
                       setHoverRating(0);
+                      setRatingError(null);
+                      setRatingLoading(false);
                     }}
                     className="text-silver/60 hover:text-silver"
                   >
@@ -766,8 +828,13 @@ const MapView: React.FC = () => {
                     )}
                     <div className="flex justify-center space-x-2 mt-4">
                       <button
-                        onClick={() => setShowRating(false)}
-                        className="btn-secondary"
+                        onClick={() => {
+                          setShowRating(false);
+                          setRatingError(null);
+                          setHoverRating(0);
+                        }}
+                        disabled={ratingLoading}
+                        className="btn-secondary disabled:opacity-50"
                       >
                         Cancel
                       </button>
@@ -777,7 +844,10 @@ const MapView: React.FC = () => {
                   <div className="flex space-x-3 mb-4">
                     {user && (
                       <button 
-                        onClick={() => setShowRating(true)}
+                        onClick={() => {
+                          setShowRating(true);
+                          setRatingError(null);
+                        }}
                         className="btn-primary flex-1 flex items-center justify-center space-x-2"
                         disabled={connectionStatus === 'offline'}
                       >
