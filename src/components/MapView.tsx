@@ -53,6 +53,8 @@ const MapView: React.FC = () => {
   const [commentError, setCommentError] = useState<string | null>(null);
   const [markingAsFound, setMarkingAsFound] = useState(false);
   const [markAsFoundError, setMarkAsFoundError] = useState<string | null>(null);
+  const [showMarkTakenConfirm, setShowMarkTakenConfirm] = useState(false);
+  const [markingAsTaken, setMarkingAsTaken] = useState(false);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -689,15 +691,19 @@ const MapView: React.FC = () => {
   };
 
   const handleMarkAsTaken = async () => {
-    if (selectedBox && user) {
-      try {
-        await updateListingStatus(selectedBox.id!, 'taken');
-        setSelectedBox(null);
-        alert('Box marked as taken!');
-      } catch (error) {
-        console.error('Error marking as taken:', error);
-        alert('Failed to mark as taken. Please try again.');
-      }
+    if (!selectedBox || !user) return;
+    
+    setMarkingAsTaken(true);
+    try {
+      await updateListingStatus(selectedBox.id!, 'taken');
+      setSelectedBox(null);
+      setShowMarkTakenConfirm(false);
+      alert('Box marked as taken!');
+    } catch (error) {
+      console.error('Error marking as taken:', error);
+      alert('Failed to mark as taken. Please try again.');
+    } finally {
+      setMarkingAsTaken(false);
     }
   };
 
@@ -932,6 +938,68 @@ const MapView: React.FC = () => {
         )}
       </div>
 
+      {/* Mark Taken Confirmation Modal */}
+      {showMarkTakenConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="card-dark rounded-2xl w-full max-w-md p-6">
+            <div className="text-center mb-6">
+              <div className="text-6xl mb-4">⚠️</div>
+              <h3 className="text-xl font-bold text-red-400 mb-2">Taking the whole box?</h3>
+              <p className="text-silver text-sm leading-relaxed">
+                If there are still items here, just click <strong>"Mark as Found"</strong> instead! 
+                This helps keep the listing active for others.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setShowMarkTakenConfirm(false);
+                  handleMarkAsFound();
+                }}
+                className="btn-primary w-full flex items-center justify-center space-x-2"
+                disabled={markingAsFound}
+              >
+                {markingAsFound ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                    <span>Marking as Found...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Mark as Found (Recommended)</span>
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={handleMarkAsTaken}
+                disabled={markingAsTaken}
+                className="w-full py-3 px-4 bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {markingAsTaken ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin"></div>
+                    <span>Marking as Taken...</span>
+                  </div>
+                ) : (
+                  'Yes, Mark Entire Box as Taken'
+                )}
+              </button>
+              
+              <button
+                onClick={() => setShowMarkTakenConfirm(false)}
+                disabled={markingAsTaken || markingAsFound}
+                className="btn-secondary w-full disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Box Detail Modal with improved scrolling */}
       {selectedBox && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
@@ -955,6 +1023,7 @@ const MapView: React.FC = () => {
                       setCommentLoading(false);
                       setMarkAsFoundError(null);
                       setMarkingAsFound(false);
+                      setShowMarkTakenConfirm(false);
                     }}
                     className="text-silver/60 hover:text-silver"
                   >
@@ -1191,7 +1260,7 @@ const MapView: React.FC = () => {
                           </button>
                           {user.uid !== selectedBox.userId && (
                             <button 
-                              onClick={handleMarkAsTaken}
+                              onClick={() => setShowMarkTakenConfirm(true)}
                               className="btn-secondary flex-1 flex items-center justify-center space-x-2"
                               disabled={connectionStatus === 'offline'}
                             >
