@@ -305,13 +305,23 @@ export const getListingsByCategory = async (category: string): Promise<BoxListin
   });
 };
 
-// Get user's listings
+// ✅ FIXED: Get user's listings with proper userId validation
 export const getUserListings = async (userId: string): Promise<BoxListing[]> => {
+  // ✅ CRITICAL FIX: Validate userId parameter
+  if (!userId) {
+    console.error('❌ getUserListings called with undefined or empty userId');
+    console.warn('📦 Returning empty array for invalid userId');
+    return [];
+  }
+
   if (!isFirebaseConfigured()) {
+    console.warn('⚠️ Firebase not configured, checking cached listings for userId:', userId);
     return getCachedListings().filter(listing => listing.userId === userId);
   }
 
   return withRetry(async () => {
+    console.log('📦 Fetching listings for userId:', userId);
+    
     const q = query(
       collection(db, LISTINGS_COLLECTION),
       where('userId', '==', userId),
@@ -320,12 +330,16 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
     );
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const listings = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     } as BoxListing));
+    
+    console.log(`✅ Retrieved ${listings.length} listings for user ${userId}`);
+    return listings;
   }, 'getUserListings').catch(error => {
     console.error('❌ Error fetching user listings:', error);
+    console.warn('📦 Falling back to cached listings for userId:', userId);
     return getCachedListings().filter(listing => listing.userId === userId);
   });
 };
