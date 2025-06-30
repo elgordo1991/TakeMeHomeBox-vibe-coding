@@ -62,18 +62,26 @@ try {
     auth = getAuth(app);
     storage = getStorage(app);
     
-    // Initialize Firestore with enhanced settings for better connectivity
+    // ✅ FIXED: Use regular Firestore for production to avoid connection issues
     try {
-      db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager()
-        })
-      });
-      console.log('✅ Firestore initialized with persistent cache');
+      // Only use persistent cache in development
+      if (import.meta.env.DEV) {
+        db = initializeFirestore(app, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+          })
+        });
+        console.log('✅ Firestore initialized with persistent cache (development)');
+      } else {
+        // Use regular Firestore in production for better stability
+        db = getFirestore(app);
+        console.log('✅ Firestore initialized (production)');
+      }
     } catch (error) {
       // Fallback to regular Firestore if persistent cache fails
       console.warn('⚠️ Persistent cache failed, using regular Firestore:', error);
       db = getFirestore(app);
+      console.log('✅ Firestore initialized with fallback');
     }
     
     console.log('✅ Firebase initialized successfully');
