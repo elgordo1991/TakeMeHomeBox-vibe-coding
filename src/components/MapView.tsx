@@ -685,132 +685,134 @@ const MapView: React.FC = () => {
         )}
       </div>
 
-      {/* Box Detail Modal */}
+      {/* Box Detail Modal with improved scrolling */}
       {selectedBox && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-          <div className="card-dark rounded-t-2xl w-full max-w-md max-h-[80vh] overflow-y-auto animate-slide-up">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold text-silver-light">
-                  {selectedBox.title}
-                </h2>
-                <button
-                  onClick={() => {
-                    setSelectedBox(null);
-                    setShowRating(false);
-                    setHoverRating(0);
-                  }}
-                  className="text-silver/60 hover:text-silver"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <img
-                src={selectedBox.images[0] || 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400'}
-                alt={selectedBox.title}
-                className="w-full h-48 object-cover rounded-lg mb-4"
-              />
-              
-              <p className="text-silver mb-4">
-                {selectedBox.description}
-              </p>
-              
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-4">
-                  <span className="flex items-center text-sm text-silver/60">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    {selectedBox.distance}
-                  </span>
-                  <span className="flex items-center text-sm text-silver/60">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {selectedBox.timePosted}
-                  </span>
+          <div className="card-dark rounded-t-2xl w-full max-w-md max-h-[80vh] overflow-hidden animate-slide-up">
+            <div className="overflow-y-auto max-h-96">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h2 className="text-xl font-bold text-silver-light">
+                    {selectedBox.title}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setSelectedBox(null);
+                      setShowRating(false);
+                      setHoverRating(0);
+                    }}
+                    className="text-silver/60 hover:text-silver"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <div className="flex items-center space-x-1">
-                  {renderBoxRating(selectedBox.rating || 0)}
-                  <span className="text-sm font-medium text-silver-light ml-1">
-                    {selectedBox.rating ? selectedBox.rating.toFixed(1) : '0.0'}
-                  </span>
-                </div>
-              </div>
-
-              {/* User info */}
-              <div className="bg-dark-blue-light rounded-lg p-3 mb-4 border border-silver/30">
-                <p className="text-sm text-silver/60">Listed by</p>
-                <p className="text-silver font-medium">{selectedBox.username}</p>
-              </div>
-
-              {/* Rating Section */}
-              {showRating && user ? (
-                <div className="bg-dark-blue-light rounded-xl p-4 mb-4 border border-silver/30">
-                  <h3 className="text-center font-semibold text-silver-light mb-3">
-                    Rate this box
-                  </h3>
-                  <p className="text-center text-sm text-silver mb-4">
-                    How would you rate the quality and accuracy of this listing?
-                  </p>
-                  {renderInteractiveRating(
-                    selectedBox.ratings.find(r => r.userId === user.uid)?.rating || 0, 
-                    handleRating
-                  )}
-                  <div className="flex justify-center space-x-2 mt-4">
-                    <button
-                      onClick={() => setShowRating(false)}
-                      className="btn-secondary"
-                    >
-                      Cancel
-                    </button>
+                
+                <img
+                  src={selectedBox.images[0] || 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400'}
+                  alt={selectedBox.title}
+                  className="w-full h-48 object-cover rounded-lg mb-4"
+                />
+                
+                <p className="text-silver mb-4">
+                  {selectedBox.description}
+                </p>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-4">
+                    <span className="flex items-center text-sm text-silver/60">
+                      <MapPin className="w-4 h-4 mr-1" />
+                      {selectedBox.distance}
+                    </span>
+                    <span className="flex items-center text-sm text-silver/60">
+                      <Clock className="w-4 h-4 mr-1" />
+                      {selectedBox.timePosted}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    {renderBoxRating(selectedBox.rating || 0)}
+                    <span className="text-sm font-medium text-silver-light ml-1">
+                      {selectedBox.rating ? selectedBox.rating.toFixed(1) : '0.0'}
+                    </span>
                   </div>
                 </div>
-              ) : (
-                <div className="flex space-x-3 mb-4">
-                  {user && (
-                    <button 
-                      onClick={() => setShowRating(true)}
-                      className="btn-primary flex-1 flex items-center justify-center space-x-2"
-                      disabled={connectionStatus === 'offline'}
-                    >
-                      <span>{getRatingEmoji(5)}</span>
-                      <span>Rate Box</span>
-                    </button>
-                  )}
-                  {user && user.uid !== selectedBox.userId && (
-                    <button 
-                      onClick={handleMarkAsTaken}
-                      className="btn-secondary flex-1 flex items-center justify-center space-x-2"
-                      disabled={connectionStatus === 'offline'}
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>Mark Taken</span>
-                    </button>
-                  )}
-                </div>
-              )}
-              
-              {user && (
-                <button 
-                  className="btn-primary w-full flex items-center justify-center space-x-2"
-                  disabled={connectionStatus === 'offline'}
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Leave Comment</span>
-                </button>
-              )}
 
-              {!user && (
-                <div className="text-center p-4 bg-dark-blue-light rounded-lg border border-silver/30">
-                  <p className="text-silver text-sm">Sign in to rate boxes and leave comments</p>
+                {/* User info */}
+                <div className="bg-dark-blue-light rounded-lg p-3 mb-4 border border-silver/30">
+                  <p className="text-sm text-silver/60">Listed by</p>
+                  <p className="text-silver font-medium">{selectedBox.username}</p>
                 </div>
-              )}
 
-              {connectionStatus === 'offline' && (
-                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-red-400 text-sm text-center">
-                    You're offline. Some actions are disabled.
-                  </p>
-                </div>
-              )}
+                {/* Rating Section */}
+                {showRating && user ? (
+                  <div className="bg-dark-blue-light rounded-xl p-4 mb-4 border border-silver/30">
+                    <h3 className="text-center font-semibold text-silver-light mb-3">
+                      Rate this box
+                    </h3>
+                    <p className="text-center text-sm text-silver mb-4">
+                      How would you rate the quality and accuracy of this listing?
+                    </p>
+                    {renderInteractiveRating(
+                      selectedBox.ratings.find(r => r.userId === user.uid)?.rating || 0, 
+                      handleRating
+                    )}
+                    <div className="flex justify-center space-x-2 mt-4">
+                      <button
+                        onClick={() => setShowRating(false)}
+                        className="btn-secondary"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex space-x-3 mb-4">
+                    {user && (
+                      <button 
+                        onClick={() => setShowRating(true)}
+                        className="btn-primary flex-1 flex items-center justify-center space-x-2"
+                        disabled={connectionStatus === 'offline'}
+                      >
+                        <span>{getRatingEmoji(5)}</span>
+                        <span>Rate Box</span>
+                      </button>
+                    )}
+                    {user && user.uid !== selectedBox.userId && (
+                      <button 
+                        onClick={handleMarkAsTaken}
+                        className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+                        disabled={connectionStatus === 'offline'}
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Mark Taken</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+                
+                {user && (
+                  <button 
+                    className="btn-primary w-full flex items-center justify-center space-x-2"
+                    disabled={connectionStatus === 'offline'}
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Leave Comment</span>
+                  </button>
+                )}
+
+                {!user && (
+                  <div className="text-center p-4 bg-dark-blue-light rounded-lg border border-silver/30">
+                    <p className="text-silver text-sm">Sign in to rate boxes and leave comments</p>
+                  </div>
+                )}
+
+                {connectionStatus === 'offline' && (
+                  <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                    <p className="text-red-400 text-sm text-center">
+                      You're offline. Some actions are disabled.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

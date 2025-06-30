@@ -18,7 +18,8 @@ import {
   connectFirestoreEmulator,
   initializeFirestore,
   persistentLocalCache,
-  persistentMultipleTabManager
+  persistentMultipleTabManager,
+  arrayUnion
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
 
@@ -121,13 +122,13 @@ const withRetry = async <T>(
   throw lastError;
 };
 
-// Create a new listing with enhanced error handling
+// Create a new listing with enhanced error handling and validation
 export const createListing = async (listingData: BoxListingInput): Promise<string> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured. Please set up your Firebase project and environment variables.');
   }
 
-  // Validate required fields
+  // Validate required fields more thoroughly
   if (!listingData.userId) {
     throw new Error('User ID is required but missing');
   }
@@ -140,6 +141,10 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
     throw new Error('Username is required but missing');
   }
 
+  if (!listingData.location?.coordinates) {
+    throw new Error('Location coordinates are required');
+  }
+
   return withRetry(async () => {
     const now = serverTimestamp();
     
@@ -149,14 +154,21 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
       : new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
     const docData: Omit<BoxListing, 'id'> = {
-      ...listingData,
+      title: listingData.title || 'Untitled Box',
+      description: listingData.description || 'No description provided',
+      category: listingData.category || 'other',
+      images: listingData.images || [],
       location: {
-        address: listingData.location.address,
+        address: listingData.location.address || 'Location set on map',
         coordinates: new GeoPoint(
           listingData.location.coordinates.lat,
           listingData.location.coordinates.lng
         ),
       },
+      isSpotted: listingData.isSpotted,
+      userId: listingData.userId,
+      userEmail: listingData.userEmail,
+      username: listingData.username,
       rating: 0,
       ratings: [],
       status: 'active',
@@ -168,7 +180,8 @@ export const createListing = async (listingData: BoxListingInput): Promise<strin
     console.log('📝 Creating listing:', { 
       title: docData.title, 
       category: docData.category,
-      userId: docData.userId 
+      userId: docData.userId,
+      coordinates: docData.location.coordinates
     });
     
     const docRef = await addDoc(collection(db, LISTINGS_COLLECTION), docData);
@@ -418,7 +431,7 @@ export const updateListingStatus = async (
   }, 'updateListingStatus');
 };
 
-// Add rating to listing
+// Enhanced rating function with proper data handling
 export const addRatingToListing = async (
   listingId: string,
   userId: string,
@@ -427,6 +440,14 @@ export const addRatingToListing = async (
 ): Promise<void> => {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
+  }
+
+  if (!listingId || !userId || !rating) {
+    throw new Error('Missing required parameters for rating');
+  }
+
+  if (rating < 1 || rating > 5) {
+    throw new Error('Rating must be between 1 and 5');
   }
 
   return withRetry(async () => {
@@ -446,7 +467,8 @@ export const addRatingToListing = async (
       const filteredRatings = existingRatings.filter(r => r.userId !== userId);
       
       // Add new rating
-      const newRatings = [...filteredRatings, { userId, rating, comment }];
+      const newRating = { userId, rating, ...(comment && { comment }) };
+      const newRatings = [...filteredRatings, newRating];
       
       // Calculate new average rating
       const averageRating = newRatings.reduce((sum, r) => sum + r.rating, 0) / newRatings.length;
@@ -457,7 +479,9 @@ export const addRatingToListing = async (
         updatedAt: serverTimestamp(),
       });
       
-      console.log(`✅ Rating added to listing ${listingId}`);
+      console.log(`✅ Rating added to listing ${listingId}: ${rating}/5`);
+    } else {
+      throw new Error('Listing not found');
     }
   }, 'addRatingToListing');
 };

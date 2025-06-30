@@ -201,6 +201,33 @@ const AddListing: React.FC = () => {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      category: '',
+      images: [],
+      location: '',
+      coordinates: null,
+      isSpotted: false
+    });
+    setShowMap(false);
+    setSubmitSuccess(false);
+    setSubmitError(null);
+    setSubmitting(false);
+    
+    // Clear map markers
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+      markerRef.current = null;
+    }
+    
+    // Reset map reference
+    if (googleMapRef.current) {
+      googleMapRef.current = null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -259,23 +286,13 @@ const AddListing: React.FC = () => {
       
       setSubmitSuccess(true);
       
-      // Reset form after successful submission
+      // Reset form after successful submission with improved timing
       setTimeout(() => {
-        setFormData({
-          title: '',
-          description: '',
-          category: '',
-          images: [],
-          location: '',
-          coordinates: null,
-          isSpotted: false
-        });
-        setShowMap(false);
-        setSubmitSuccess(false);
+        resetForm();
       }, 2000);
       
     } catch (error: any) {
-      console.error('❌ Error creating listing:', error);
+      console.error('🔥 Error creating listing:', error);
       
       // Provide user-friendly error messages
       if (error.message.includes('Firebase is not configured')) {
@@ -290,11 +307,17 @@ const AddListing: React.FC = () => {
         setSubmitError('Email missing from profile. Please sign out and sign in again.');
       } else if (error.message.includes('Username is missing')) {
         setSubmitError('Username missing from profile. Please update your profile first.');
+      } else if (error.code === 'permission-denied') {
+        setSubmitError('Permission denied. Please check your authentication and try again.');
+      } else if (error.code === 'unauthenticated') {
+        setSubmitError('Authentication required. Please sign in and try again.');
+      } else if (error.code === 'unavailable') {
+        setSubmitError('Service temporarily unavailable. Please try again in a few moments.');
       } else {
         setSubmitError(error.message || 'Failed to create listing. Please try again.');
       }
-    } finally {
-      setSubmitting(false);
+      
+      setSubmitting(false); // ensure spinner goes away
     }
   };
 
