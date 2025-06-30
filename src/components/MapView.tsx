@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle, Wifi, WifiOff, RefreshCw, Send, X } from 'lucide-react';
+import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle, Wifi, WifiOff, RefreshCw, Send, X, CheckCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
@@ -8,6 +8,7 @@ import {
   addRatingToListing, 
   addCommentToListing,
   updateListingStatus,
+  markListingAsFound,
   calculateDistance,
   enableFirestoreNetwork,
   disableFirestoreNetwork,
@@ -50,6 +51,8 @@ const MapView: React.FC = () => {
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [markingAsFound, setMarkingAsFound] = useState(false);
+  const [markAsFoundError, setMarkAsFoundError] = useState<string | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -616,6 +619,75 @@ const MapView: React.FC = () => {
     }
   };
 
+  // ✅ NEW: Handle marking listing as found
+  const handleMarkAsFound = async () => {
+    if (!selectedBox || !user) {
+      setMarkAsFoundError('Authentication required');
+      return;
+    }
+
+    if (!selectedBox.id) {
+      setMarkAsFoundError('Invalid listing ID');
+      return;
+    }
+
+    // Prevent users from marking their own listings as found
+    if (selectedBox.userId === user.uid) {
+      setMarkAsFoundError('You cannot mark your own listing as found');
+      return;
+    }
+
+    console.log('🟡 Attempting to mark listing as found:', {
+      listingId: selectedBox.id,
+      userId: user.uid,
+      username: user.username
+    });
+
+    setMarkingAsFound(true);
+    setMarkAsFoundError(null);
+
+    try {
+      // Mark the listing as found and update user's itemsTaken count
+      await markListingAsFound(selectedBox.id, user.uid, true);
+      
+      // Update local state immediately for better UX
+      const updatedBox = { ...selectedBox };
+      updatedBox.status = 'taken';
+      updatedBox.takenBy = user.uid;
+      updatedBox.isSpotted = true;
+      
+      setSelectedBox(updatedBox);
+      
+      console.log('✅ Listing marked as found successfully');
+      
+      // Show success message and close modal
+      setTimeout(() => {
+        alert('🎉 Great find! Your itemsTaken count has been updated. Thanks for being part of the community!');
+        setSelectedBox(null);
+      }, 100);
+      
+    } catch (error: any) {
+      console.error('❌ Error marking listing as found:', error);
+      
+      // Provide specific error messages
+      if (error.message.includes('Missing required parameters')) {
+        setMarkAsFoundError('Invalid request data. Please try again.');
+      } else if (error.message.includes('Listing not found')) {
+        setMarkAsFoundError('This listing no longer exists.');
+      } else if (error.code === 'permission-denied') {
+        setMarkAsFoundError('Permission denied. Please check your authentication.');
+      } else if (error.code === 'unauthenticated') {
+        setMarkAsFoundError('Please sign in to mark items as found.');
+      } else if (error.code === 'unavailable') {
+        setMarkAsFoundError('Service temporarily unavailable. Please try again.');
+      } else {
+        setMarkAsFoundError(error.message || 'Failed to mark as found. Please try again.');
+      }
+    } finally {
+      setMarkingAsFound(false);
+    }
+  };
+
   const handleMarkAsTaken = async () => {
     if (selectedBox && user) {
       try {
@@ -881,6 +953,8 @@ const MapView: React.FC = () => {
                       setCommentText('');
                       setCommentError(null);
                       setCommentLoading(false);
+                      setMarkAsFoundError(null);
+                      setMarkingAsFound(false);
                     }}
                     className="text-silver/60 hover:text-silver"
                   >
@@ -922,6 +996,13 @@ const MapView: React.FC = () => {
                   <p className="text-sm text-silver/60">Listed by</p>
                   <p className="text-silver font-medium">{selectedBox.username}</p>
                 </div>
+
+                {/* Mark as Found Error */}
+                {markAsFoundError && (
+                  <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                    <p className="text-red-400 text-sm">{markAsFoundError}</p>
+                  </div>
+                )}
 
                 {/* Rating Section */}
                 {showRating && user ? (
@@ -1071,30 +1152,54 @@ const MapView: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="flex space-x-3 mb-4">
+                  <div className="space-y-3 mb-4">
                     {user && (
                       <>
-                        <button 
-                          onClick={() => {
-                            setShowRating(true);
-                            setRatingError(null);
-                          }}
-                          className="btn-primary flex-1 flex items-center justify-center space-x-2"
-                          disabled={connectionStatus === 'offline'}
-                        >
-                          <span>{getRatingEmoji(5)}</span>
-                          <span>Rate Box</span>
-                        </button>
+                        {/* ✅ NEW: Mark as Found Button */}
                         {user.uid !== selectedBox.userId && (
                           <button 
-                            onClick={handleMarkAsTaken}
-                            className="btn-secondary flex-1 flex items-center justify-center space-x-2"
-                            disabled={connectionStatus === 'offline'}
+                            onClick={handleMarkAsFound}
+                            disabled={markingAsFound || connectionStatus === 'offline'}
+                            className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50"
                           >
-                            <Camera className="w-4 h-4" />
-                            <span>Mark Taken</span>
+                            {markingAsFound ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                                <span>Marking as Found...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                <span>Mark as Found</span>
+                              </>
+                            )}
                           </button>
                         )}
+                        
+                        {/* Action buttons row */}
+                        <div className="flex space-x-3">
+                          <button 
+                            onClick={() => {
+                              setShowRating(true);
+                              setRatingError(null);
+                            }}
+                            className="btn-primary flex-1 flex items-center justify-center space-x-2"
+                            disabled={connectionStatus === 'offline'}
+                          >
+                            <span>{getRatingEmoji(5)}</span>
+                            <span>Rate Box</span>
+                          </button>
+                          {user.uid !== selectedBox.userId && (
+                            <button 
+                              onClick={handleMarkAsTaken}
+                              className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+                              disabled={connectionStatus === 'offline'}
+                            >
+                              <Camera className="w-4 h-4" />
+                              <span>Mark Taken</span>
+                            </button>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>

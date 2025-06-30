@@ -46,6 +46,7 @@ export interface BoxListing {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   expiresAt?: Timestamp;
+  takenBy?: string; // ✅ NEW: Track who found the item
 }
 
 export interface Comment {
@@ -456,6 +457,67 @@ export const updateListingStatus = async (
     });
     console.log(`✅ Listing ${listingId} status updated to ${status}`);
   }, 'updateListingStatus');
+};
+
+// ✅ NEW: Mark listing as found and update user's itemsTaken count
+export const markListingAsFound = async (
+  listingId: string,
+  userId: string,
+  markAsSpotted: boolean = true
+): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
+
+  if (!listingId || !userId) {
+    throw new Error('Missing required parameters: listingId and userId');
+  }
+
+  return withRetry(async () => {
+    console.log(`[📦 Firestore] Marking listing ${listingId} as found by user ${userId}`);
+    
+    // Update the listing
+    const listingRef = doc(db, LISTINGS_COLLECTION, listingId);
+    const updateData: any = {
+      status: 'taken',
+      takenBy: userId,
+      updatedAt: serverTimestamp(),
+    };
+    
+    // Optionally mark as spotted if requested
+    if (markAsSpotted) {
+      updateData.isSpotted = true;
+    }
+    
+    await updateDoc(listingRef, updateData);
+    console.log(`[✅ Firestore] Listing ${listingId} marked as taken`);
+
+    // Update user's itemsTaken count
+    try {
+      console.log(`[📊 Firestore] Updating user itemsTaken count for userId: ${userId}`);
+      
+      await updateDoc(doc(db, USERS_COLLECTION, userId), {
+        itemsTaken: increment(1),
+        lastActive: serverTimestamp()
+      });
+      
+      console.log('[✅ Firestore] User itemsTaken count incremented successfully');
+    } catch (userUpdateError: any) {
+      console.error('[⚠️ Firestore] Failed to update user itemsTaken count:', userUpdateError);
+      
+      // Don't fail the entire operation if user update fails
+      // The listing was marked as taken successfully
+      if (userUpdateError.code === 'not-found') {
+        console.warn('[⚠️ Firestore] User document not found. User profile may need to be recreated.');
+      } else if (userUpdateError.code === 'permission-denied') {
+        console.warn('[⚠️ Firestore] Permission denied updating user profile. Check Firestore security rules.');
+      } else {
+        console.warn('[⚠️ Firestore] Unknown error updating user profile:', userUpdateError.message);
+      }
+    }
+    
+    console.log(`[🎉 Firestore] Successfully marked listing as found and updated user stats`);
+  }, 'markListingAsFound');
 };
 
 // ✅ ENHANCED RATING FUNCTION - Now properly validates and saves ratings
