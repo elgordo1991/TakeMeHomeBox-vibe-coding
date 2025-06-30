@@ -208,10 +208,11 @@ const Profile: React.FC = () => {
   const ratingEmoji = getRatingEmoji(user.rating);
   const totalActivity = (user.itemsGiven || 0) + (user.itemsTaken || 0);
 
-  // ✅ UPDATED: Filter listings to exclude 'taken' status
+  // ✅ UPDATED: Improved filtering logic as requested
   const filteredListings = userListings.filter(listing => {
-    // Only show active and expired listings, ignore taken listings
-    return listing.status === activeTab;
+    if (activeTab === 'active') return listing.status === 'active';
+    if (activeTab === 'expired') return listing.status === 'expired';
+    return false; // Fallback - should never reach here with current tabs
   });
 
   return (
@@ -624,7 +625,7 @@ const Profile: React.FC = () => {
             >
               <LogOut className="w-5 h-5" />
               <span>Sign Out</span>
-            </button>
+            </div>
           </div>
         </div>
       </div>
