@@ -26,34 +26,65 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    console.log('🟡 [DEBUG] ===== MULTI IMAGE UPLOAD STARTED =====');
+    console.log('🟡 [DEBUG] Files selected:', {
+      count: files.length,
+      currentImages: images.length,
+      maxImages: maxImages,
+      files: files.map(f => ({ name: f.name, size: f.size, type: f.type }))
+    });
+
     setError(null);
 
     // Check if adding these files would exceed the limit
     if (images.length + files.length > maxImages) {
-      setError(`Maximum ${maxImages} images allowed`);
+      const errorMsg = `Maximum ${maxImages} images allowed`;
+      console.error('❌ [DEBUG] Too many images:', errorMsg);
+      setError(errorMsg);
       return;
     }
 
     // Validate all files
     for (const file of files) {
+      console.log('🟡 [DEBUG] Validating file:', file.name);
       const validation = validateImageFile(file);
       if (!validation.valid) {
+        console.error('❌ [DEBUG] File validation failed:', validation.error);
         setError(validation.error || 'Invalid file');
         return;
       }
     }
 
+    console.log('✅ [DEBUG] All files validated successfully');
+
     try {
       // Show previews immediately
+      console.log('🟡 [DEBUG] Generating previews...');
       const previewUrls = await Promise.all(files.map(file => fileToDataURL(file)));
+      console.log('✅ [DEBUG] Previews generated:', previewUrls.length);
+      
       setPreviews(previewUrls);
       setUploading(true);
 
       // Upload files
+      console.log('🟡 [DEBUG] Starting upload process...');
       const uploadedUrls = await uploadMultipleImages(files, folder);
-      onImagesChanged([...images, ...uploadedUrls]);
+      console.log('✅ [DEBUG] Upload process completed:', uploadedUrls);
+      
+      const newImages = [...images, ...uploadedUrls];
+      console.log('🟡 [DEBUG] Updating images state:', {
+        previousImages: images,
+        uploadedUrls: uploadedUrls,
+        newImages: newImages
+      });
+      
+      onImagesChanged(newImages);
       setPreviews([]);
+      
+      console.log('🎉 [DEBUG] ===== MULTI IMAGE UPLOAD SUCCESS =====');
     } catch (error: any) {
+      console.error('❌ [DEBUG] ===== MULTI IMAGE UPLOAD FAILED =====');
+      console.error('❌ [DEBUG] Upload error:', error);
       setError(error.message || 'Upload failed');
       setPreviews([]);
     } finally {
@@ -66,12 +97,26 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
   };
 
   const handleRemoveImage = (index: number) => {
+    console.log('🟡 [DEBUG] Removing image at index:', index);
+    console.log('🟡 [DEBUG] Current images:', images);
+    
     const newImages = images.filter((_, i) => i !== index);
+    console.log('🟡 [DEBUG] Images after removal:', newImages);
+    
     onImagesChanged(newImages);
   };
 
   const allImages = [...images.map(img => getImageUrl(img)), ...previews];
   const canAddMore = allImages.length < maxImages && !uploading;
+
+  console.log('🟡 [DEBUG] MultiImageUpload render state:', {
+    images: images,
+    previews: previews,
+    allImages: allImages.length,
+    canAddMore: canAddMore,
+    uploading: uploading,
+    error: error
+  });
 
   return (
     <div className={className}>

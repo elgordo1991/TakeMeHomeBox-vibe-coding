@@ -153,6 +153,12 @@ const AddListing: React.FC = () => {
   };
 
   const handleImagesChanged = (images: string[]) => {
+    console.log('🟡 [DEBUG] Images changed in AddListing:', {
+      previousCount: formData.images.length,
+      newCount: images.length,
+      images: images
+    });
+    
     setFormData({
       ...formData,
       images
@@ -231,13 +237,32 @@ const AddListing: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🟡 [DEBUG] ===== STARTING LISTING SUBMISSION =====');
+    console.log('🟡 [DEBUG] Form submission started with data:', {
+      title: formData.title,
+      description: formData.description,
+      category: formData.category,
+      imageCount: formData.images.length,
+      images: formData.images,
+      location: formData.location,
+      coordinates: formData.coordinates,
+      isSpotted: formData.isSpotted,
+      user: user ? {
+        uid: user.uid,
+        email: user.email,
+        username: user.username
+      } : null
+    });
+    
     if (!user) {
+      console.error('❌ [DEBUG] No user found for listing submission');
       setSubmitError('You must be logged in to create a listing');
       return;
     }
     
     // Only location is required
     if (!formData.coordinates) {
+      console.error('❌ [DEBUG] No coordinates provided');
       setSubmitError('Please set a location for your box');
       return;
     }
@@ -250,6 +275,12 @@ const AddListing: React.FC = () => {
       const userId = user.uid || user.id;
       const userEmail = user.email;
       const username = user.username;
+
+      console.log('🟡 [DEBUG] Validating user data:', {
+        userId,
+        userEmail,
+        username
+      });
 
       if (!userId) {
         throw new Error('User ID is missing. Please sign out and sign in again.');
@@ -278,21 +309,30 @@ const AddListing: React.FC = () => {
         username: username,
       };
 
-      console.log('[CURRENT USER]', user);
-      console.log('[🟡 Submitting Listing]', listingData);
+      console.log('🟡 [DEBUG] Prepared listing data for submission:', listingData);
+      console.log('🟡 [DEBUG] About to call createListing function...');
       
       const listingId = await createListing(listingData);
-      console.log('✅ Listing created with ID:', listingId);
+      
+      console.log('🎉 [DEBUG] ===== LISTING CREATION SUCCESS =====');
+      console.log('✅ [DEBUG] Listing created with ID:', listingId);
       
       setSubmitSuccess(true);
       
       // Reset form after successful submission with improved timing
       setTimeout(() => {
+        console.log('🟡 [DEBUG] Resetting form after successful submission');
         resetForm();
       }, 2000);
       
     } catch (error: any) {
-      console.error('🔥 Error creating listing:', error);
+      console.error('🔥 [DEBUG] ===== LISTING CREATION FAILED =====');
+      console.error('❌ [DEBUG] Error creating listing:', error);
+      console.error('❌ [DEBUG] Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       
       // Provide user-friendly error messages
       if (error.message.includes('Firebase is not configured')) {

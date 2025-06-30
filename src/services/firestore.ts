@@ -193,18 +193,41 @@ const withRetry = async <T>(
   throw lastError;
 };
 
-// ✅ OPTIMIZED: Faster listing creation with batched operations
+// ✅ OPTIMIZED: Faster listing creation with batched operations and enhanced debugging
 export async function createListing(listingData: BoxListingInput): Promise<string> {
-  console.log('[📤 Firestore] Attempting to save listing:', listingData);
+  console.log('🟡 [DEBUG] ===== FIRESTORE CREATE LISTING STARTED =====');
+  console.log('🟡 [DEBUG] Input data received:', {
+    title: listingData.title,
+    description: listingData.description,
+    category: listingData.category,
+    imageCount: listingData.images?.length || 0,
+    images: listingData.images,
+    location: listingData.location,
+    isSpotted: listingData.isSpotted,
+    userId: listingData.userId,
+    userEmail: listingData.userEmail,
+    username: listingData.username
+  });
   
   if (!isFirebaseConfigured()) {
+    console.error('❌ [DEBUG] Firebase not configured');
     throw new Error('Firebase is not configured. Please set up your Firebase project and environment variables.');
   }
 
   return queueOperation(async () => {
     try {
-      if (!listingData.userId) throw new Error('Missing userId in listingData');
-      if (!listingData.location?.coordinates) throw new Error('Missing location coordinates');
+      console.log('🟡 [DEBUG] Starting queued operation for createListing');
+      
+      if (!listingData.userId) {
+        console.error('❌ [DEBUG] Missing userId');
+        throw new Error('Missing userId in listingData');
+      }
+      if (!listingData.location?.coordinates) {
+        console.error('❌ [DEBUG] Missing location coordinates');
+        throw new Error('Missing location coordinates');
+      }
+      
+      console.log('✅ [DEBUG] Basic validation passed');
       
       // Convert input data to Firestore format
       const now = serverTimestamp();
@@ -239,31 +262,41 @@ export async function createListing(listingData: BoxListingInput): Promise<strin
         ...(expiresAt && { expiresAt: Timestamp.fromDate(expiresAt) }),
       };
 
-      console.log('[📝 Firestore] Formatted document data:', docData);
+      console.log('🟡 [DEBUG] Formatted document data:', docData);
 
       // ✅ OPTIMIZED: Use batch write for atomic operations
+      console.log('🟡 [DEBUG] Creating batch write operation...');
       const batch = writeBatch(db);
       
       // Create the listing
       const listingRef = doc(collection(db, LISTINGS_COLLECTION));
+      console.log('🟡 [DEBUG] Generated listing reference:', listingRef.id);
       batch.set(listingRef, docData);
       
       // Update user's itemsGiven count
       const userRef = doc(db, USERS_COLLECTION, listingData.userId);
+      console.log('🟡 [DEBUG] Adding user update to batch for userId:', listingData.userId);
       batch.update(userRef, {
         itemsGiven: increment(1),
         lastActive: serverTimestamp()
       });
       
       // Commit batch
+      console.log('🟡 [DEBUG] Committing batch operation...');
       await batch.commit();
       
-      console.log('[✅ Firestore] Listing saved with ID:', listingRef.id);
-      console.log('[✅ Firestore] User itemsGiven count incremented successfully');
+      console.log('🎉 [DEBUG] ===== FIRESTORE CREATE LISTING SUCCESS =====');
+      console.log('✅ [DEBUG] Listing saved with ID:', listingRef.id);
+      console.log('✅ [DEBUG] User itemsGiven count incremented successfully');
 
       return listingRef.id;
-    } catch (error) {
-      console.error('[❌ Firestore] Failed to save listing:', error);
+    } catch (error: any) {
+      console.error('❌ [DEBUG] ===== FIRESTORE CREATE LISTING FAILED =====');
+      console.error('❌ [DEBUG] Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       throw error;
     }
   });
