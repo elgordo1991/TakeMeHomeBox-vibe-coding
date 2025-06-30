@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Bell, BellOff, Trash2 } from 'lucide-react';
+import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Bell, BellOff, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, updateListingStatus, deleteListing, BoxListing } from '../services/firestore';
 import ImageUpload from './ImageUpload';
@@ -12,6 +12,7 @@ const Profile: React.FC = () => {
   const [userListings, setUserListings] = useState<BoxListing[]>([]);
   const [loadingListings, setLoadingListings] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'expired'>('active');
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -188,6 +189,20 @@ const Profile: React.FC = () => {
     } else {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
       return `${Math.max(1, diffMinutes)} minute${diffMinutes > 1 ? 's' : ''} ago`;
+    }
+  };
+
+  // ✅ NEW: Format date helper function
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Unknown';
     }
   };
 
@@ -596,26 +611,42 @@ const Profile: React.FC = () => {
               </button>
             </div>
 
-            {/* Account Info */}
+            {/* ✅ NEW: Account Details Dropdown */}
             <div className="p-4">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-silver/60">Email:</span>
-                  <span className="text-silver">{user.email}</span>
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="w-full flex items-center justify-between text-left hover:bg-dark-blue-light/50 transition-colors rounded-lg p-2 -m-2"
+              >
+                <div className="flex items-center space-x-3">
+                  <User className="w-5 h-5 text-silver" />
+                  <div>
+                    <p className="text-silver font-medium">Account Details</p>
+                    <p className="text-sm text-silver/60">View account information</p>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-silver/60">Member since:</span>
-                  <span className="text-silver">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </span>
+                {showDetails ? (
+                  <ChevronUp className="w-5 h-5 text-silver/60" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-silver/60" />
+                )}
+              </button>
+
+              {showDetails && (
+                <div className="mt-4 p-4 bg-dark-blue rounded-lg border border-silver/20 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-silver/60">Email:</span>
+                    <span className="text-silver">{user.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-silver/60">Joined:</span>
+                    <span className="text-silver">{formatDate(user.createdAt)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-silver/60">User ID:</span>
+                    <span className="text-silver font-mono text-xs">{user.uid}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-silver/60">Last active:</span>
-                  <span className="text-silver">
-                    {new Date(user.lastActive).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Logout */}
