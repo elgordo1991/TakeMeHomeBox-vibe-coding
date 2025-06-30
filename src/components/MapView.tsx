@@ -478,7 +478,7 @@ const MapView: React.FC = () => {
     setRatingError(null);
 
     try {
-      // Call with correct parameter order: listingId, rating, userId
+      // ✅ FIXED: Call with correct parameter order: listingId, ratingValue, userId
       await addRatingToListing(selectedBox.id, rating, user.uid);
       
       // Update local state immediately for better UX
