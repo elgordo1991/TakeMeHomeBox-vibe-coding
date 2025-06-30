@@ -55,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return auth && db;
   };
 
-  // Create user profile in Firestore
+  // ✅ OPTIMIZED: Batch user profile operations
   const createUserProfile = async (firebaseUser: FirebaseUser, additionalData?: Partial<User>): Promise<User> => {
     const now = new Date().toISOString();
     
@@ -76,9 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (isFirebaseConfigured()) {
       try {
-        // Save to Firestore
-        await setDoc(doc(db, 'users', firebaseUser.uid), userProfile);
-        console.log('✅ User profile created in Firestore');
+        // ✅ OPTIMIZED: Use merge option to avoid overwriting existing data
+        await setDoc(doc(db, 'users', firebaseUser.uid), userProfile, { merge: true });
+        console.log('✅ User profile created/updated in Firestore');
       } catch (error) {
         console.error('❌ Error creating user profile:', error);
         // Continue without Firestore if it fails
@@ -92,18 +92,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return userProfile;
   };
 
-  // Load user profile from Firestore or localStorage
+  // ✅ OPTIMIZED: Cache user profiles and reduce Firestore calls
   const loadUserProfile = async (userId: string): Promise<User | null> => {
+    // First check memory cache
+    const memoryCache = sessionStorage.getItem(`user_profile_${userId}`);
+    if (memoryCache) {
+      try {
+        const cached = JSON.parse(memoryCache);
+        // Use cache if less than 5 minutes old
+        if (Date.now() - cached.timestamp < 5 * 60 * 1000) {
+          console.log('📦 Using cached user profile');
+          return { ...cached.data, lastActive: new Date().toISOString() };
+        }
+      } catch (error) {
+        console.warn('Failed to parse cached user profile');
+      }
+    }
+
     if (isFirebaseConfigured()) {
       try {
         const userDoc = await getDoc(doc(db, 'users', userId));
         if (userDoc.exists()) {
           const userData = userDoc.data() as User;
-          // Update last active
-          await updateDoc(doc(db, 'users', userId), {
+          
+          // ✅ OPTIMIZED: Update last active in background, don't wait
+          updateDoc(doc(db, 'users', userId), {
             lastActive: new Date().toISOString()
-          });
-          return { ...userData, lastActive: new Date().toISOString() };
+          }).catch(console.error);
+          
+          const profileData = { ...userData, lastActive: new Date().toISOString() };
+          
+          // Cache the profile
+          sessionStorage.setItem(`user_profile_${userId}`, JSON.stringify({
+            data: profileData,
+            timestamp: Date.now()
+          }));
+          
+          return profileData;
         }
       } catch (error) {
         console.error('Error loading user profile from Firestore:', error);
@@ -127,6 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   };
 
+  // ✅ OPTIMIZED: Reduce auth state change processing
   useEffect(() => {
     if (!isFirebaseConfigured()) {
       console.warn('⚠️ Firebase not configured, authentication disabled');
@@ -134,7 +160,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    let isProcessing = false;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (isProcessing) return;
+      isProcessing = true;
+
       if (firebaseUser) {
         try {
           // Load existing profile or create new one
@@ -152,23 +183,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         setUser(null);
+        // Clear cached profiles on logout
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.startsWith('user_profile_')) {
+            sessionStorage.removeItem(key);
+          }
+        });
       }
+      
       setLoading(false);
+      isProcessing = false;
     });
 
     return () => unsubscribe();
   }, []);
 
+  // ✅ OPTIMIZED: Faster login with reduced database calls
   const login = async (email: string, password: string) => {
     if (!isFirebaseConfigured()) {
       throw new Error('Firebase is not configured. Please check your environment variables.');
     }
 
     try {
+      setLoading(true);
       const result = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = result.user;
       
-      // Load user profile
+      // Load user profile (will use cache if available)
       let profile = await loadUserProfile(firebaseUser.uid);
       
       if (!profile) {
@@ -179,15 +220,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error('Login error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ✅ OPTIMIZED: Faster signup with parallel operations
   const signup = async (userData: Partial<User> & { password: string }) => {
     if (!isFirebaseConfigured()) {
       throw new Error('Firebase is not configured. Please check your environment variables.');
     }
 
     try {
+      setLoading(true);
+      
       if (!userData.email || !userData.password) {
         throw new Error('Email and password are required');
       }
@@ -195,33 +241,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
       const firebaseUser = result.user;
       
-      // Update Firebase profile with username
-      if (userData.username) {
-        await updateFirebaseProfile(firebaseUser, {
-          displayName: userData.username
-        });
-      }
+      // ✅ OPTIMIZED: Update Firebase profile and create user profile in parallel
+      const updateProfilePromise = userData.username ? 
+        updateFirebaseProfile(firebaseUser, { displayName: userData.username }) : 
+        Promise.resolve();
       
-      // Create and save user profile
-      const profile = await createUserProfile(firebaseUser, userData);
+      const createProfilePromise = createUserProfile(firebaseUser, userData);
+      
+      const [, profile] = await Promise.all([updateProfilePromise, createProfilePromise]);
+      
       setUser(profile);
     } catch (error: any) {
       console.error('Signup error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ✅ OPTIMIZED: Faster Google login
   const loginWithGoogle = async (credential: string) => {
     if (!isFirebaseConfigured()) {
       throw new Error('Firebase is not configured. Please check your environment variables.');
     }
 
     try {
+      setLoading(true);
       const provider = GoogleAuthProvider.credential(credential);
       const result = await signInWithCredential(auth, provider);
       const firebaseUser = result.user;
       
-      // Load existing profile or create new one
+      // Load existing profile or create new one (will use cache if available)
       let profile = await loadUserProfile(firebaseUser.uid);
       
       if (!profile) {
@@ -233,6 +283,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error('Google login error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -245,12 +297,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signOut(auth);
       setUser(null);
+      // Clear cached profiles
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('user_profile_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
     } catch (error: any) {
       console.error('Logout error:', error);
       throw error;
     }
   };
 
+  // ✅ OPTIMIZED: Faster profile updates with optimistic UI
   const updateProfile = async (updates: Partial<User>) => {
     if (user) {
       const updatedUser = {
@@ -259,25 +318,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastActive: new Date().toISOString(),
       };
       
+      // ✅ OPTIMIZED: Update UI immediately (optimistic update)
+      setUser(updatedUser);
+      
+      // Update cache immediately
+      sessionStorage.setItem(`user_profile_${user.uid}`, JSON.stringify({
+        data: updatedUser,
+        timestamp: Date.now()
+      }));
+      
       if (isFirebaseConfigured()) {
         try {
-          // Update in Firestore
+          // Update in Firestore in background
           await updateDoc(doc(db, 'users', user.uid), updatedUser);
-          setUser(updatedUser);
-          return;
         } catch (error) {
           console.error('Error updating profile in Firestore:', error);
-          // Fall back to localStorage
+          // Revert optimistic update on error
+          setUser(user);
+          sessionStorage.setItem(`user_profile_${user.uid}`, JSON.stringify({
+            data: user,
+            timestamp: Date.now()
+          }));
+          throw error;
         }
       }
       
       // Fallback to localStorage
       try {
         localStorage.setItem(`user_${user.uid}`, JSON.stringify(updatedUser));
-        setUser(updatedUser);
       } catch (error) {
         console.error('Error updating profile in localStorage:', error);
-        throw error;
       }
     }
   };

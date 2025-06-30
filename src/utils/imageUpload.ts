@@ -31,12 +31,16 @@ export const validateImageFile = (file: File): { valid: boolean; error?: string 
     return { valid: false, error: 'Image must be smaller than 5MB' };
   }
 
-  // Check image dimensions (optional)
   return { valid: true };
 };
 
-// Resize image if needed
-export const resizeImage = (file: File, maxWidth: number = 800, maxHeight: number = 600, quality: number = 0.8): Promise<string> => {
+// ✅ OPTIMIZED: Enhanced image resizing with better quality
+export const resizeImage = (
+  file: File, 
+  maxWidth: number = 1200, 
+  maxHeight: number = 800, 
+  quality: number = 0.85
+): Promise<Blob> => {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
@@ -62,9 +66,16 @@ export const resizeImage = (file: File, maxWidth: number = 800, maxHeight: numbe
       canvas.width = width;
       canvas.height = height;
 
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
       // Draw and compress
       ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', quality));
+      
+      canvas.toBlob((blob) => {
+        resolve(blob!);
+      }, 'image/jpeg', quality);
     };
 
     img.src = URL.createObjectURL(file);
@@ -81,9 +92,35 @@ const isStorageConfigured = () => {
   }
 };
 
-// Upload image to Firebase Storage or fallback to local storage
+// ✅ OPTIMIZED: Parallel upload processing
+const uploadQueue: Array<() => Promise<any>> = [];
+let isProcessingUploads = false;
+
+const processUploadQueue = async () => {
+  if (isProcessingUploads || uploadQueue.length === 0) return;
+  
+  isProcessingUploads = true;
+  
+  // Process up to 3 uploads in parallel
+  const batch = uploadQueue.splice(0, 3);
+  
+  try {
+    await Promise.all(batch.map(upload => upload()));
+  } catch (error) {
+    console.error('Batch upload error:', error);
+  }
+  
+  isProcessingUploads = false;
+  
+  // Process remaining uploads
+  if (uploadQueue.length > 0) {
+    setTimeout(processUploadQueue, 100);
+  }
+};
+
+// ✅ OPTIMIZED: Enhanced upload with compression and parallel processing
 export const uploadImage = async (file: File, folder: string = 'listings'): Promise<string> => {
-  console.log('🟡 Starting image upload:', file.name);
+  console.log('🟡 Starting optimized image upload:', file.name);
   
   // Validate file
   const validation = validateImageFile(file);
@@ -91,75 +128,101 @@ export const uploadImage = async (file: File, folder: string = 'listings'): Prom
     throw new Error(validation.error);
   }
 
-  // Try Firebase Storage first (aligns with your storage rules)
-  if (isStorageConfigured()) {
-    try {
-      // Generate a unique filename
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2);
-      const extension = file.name.split('.').pop() || 'jpg';
-      const filename = `${timestamp}-${randomId}.${extension}`;
-      
-      // Create storage reference - aligns with your rules
-      const storageRef = ref(storage, `${folder}/${filename}`);
-      
-      // Upload file
-      console.log(`📤 Uploading to Firebase Storage: ${folder}/${filename}`);
-      await uploadBytes(storageRef, file);
-      console.log('✅ Upload successful');
-      
-      // Get download URL
-      const url = await getDownloadURL(storageRef);
-      console.log('📸 Image URL:', url);
-      
-      return url;
-    } catch (error: any) {
-      console.error('❌ Firebase Storage upload failed:', error);
-      
-      if (error.code === 'storage/unauthorized') {
-        console.error('Storage permission denied. Check your Firebase Storage rules.');
-      } else if (error.code === 'storage/quota-exceeded') {
-        console.error('Storage quota exceeded. Please check your Firebase plan.');
-      } else if (error.code === 'storage/unauthenticated') {
-        console.error('Authentication required for storage upload.');
-      } else if (error.code === 'storage/retry-limit-exceeded') {
-        console.error('Upload retry limit exceeded. Please try again later.');
-      } else if (error.code === 'storage/invalid-format') {
-        console.error('Invalid file format for upload.');
-      } else {
-        console.error('Unknown storage error:', error.message);
+  return new Promise((resolve, reject) => {
+    const uploadOperation = async () => {
+      try {
+        // ✅ OPTIMIZED: Compress image before upload
+        const compressedBlob = await resizeImage(file);
+        console.log(`📦 Compressed ${file.name}: ${file.size} → ${compressedBlob.size} bytes`);
+
+        // Try Firebase Storage first
+        if (isStorageConfigured()) {
+          try {
+            // Generate a unique filename
+            const timestamp = Date.now();
+            const randomId = Math.random().toString(36).substring(2);
+            const extension = file.name.split('.').pop() || 'jpg';
+            const filename = `${timestamp}-${randomId}.${extension}`;
+            
+            // Create storage reference
+            const storageRef = ref(storage, `${folder}/${filename}`);
+            
+            // Upload compressed file
+            console.log(`📤 Uploading compressed image to Firebase Storage: ${folder}/${filename}`);
+            await uploadBytes(storageRef, compressedBlob);
+            console.log('✅ Upload successful');
+            
+            // Get download URL
+            const url = await getDownloadURL(storageRef);
+            console.log('📸 Image URL:', url);
+            
+            resolve(url);
+            return;
+          } catch (error: any) {
+            console.error('❌ Firebase Storage upload failed:', error);
+            
+            if (error.code === 'storage/unauthorized') {
+              console.error('Storage permission denied. Check your Firebase Storage rules.');
+            } else if (error.code === 'storage/quota-exceeded') {
+              console.error('Storage quota exceeded. Please check your Firebase plan.');
+            } else if (error.code === 'storage/unauthenticated') {
+              console.error('Authentication required for storage upload.');
+            } else if (error.code === 'storage/retry-limit-exceeded') {
+              console.error('Upload retry limit exceeded. Please try again later.');
+            } else if (error.code === 'storage/invalid-format') {
+              console.error('Invalid file format for upload.');
+            } else {
+              console.error('Unknown storage error:', error.message);
+            }
+            
+            // Fall back to local storage
+            console.log('📦 Falling back to local storage...');
+          }
+        }
+
+        // Fallback to local storage
+        try {
+          console.log('🟡 Using local storage fallback for:', file.name);
+          
+          // Convert blob to data URL
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            
+            // Generate a unique filename
+            const timestamp = Date.now();
+            const randomId = Math.random().toString(36).substring(2);
+            const extension = file.name.split('.').pop() || 'jpg';
+            const filename = `${folder}/${timestamp}-${randomId}.${extension}`;
+            
+            // Store in localStorage for persistence
+            localStorage.setItem(`uploaded_image_${filename}`, dataUrl);
+            
+            console.log('✅ Local storage upload successful');
+            console.log('📸 Local Image URL:', `local://${filename}`);
+            
+            resolve(`local://${filename}`);
+          };
+          
+          reader.onerror = () => {
+            reject(new Error('Failed to process compressed image'));
+          };
+          
+          reader.readAsDataURL(compressedBlob);
+        } catch (error: any) {
+          console.error('❌ Local storage upload failed:', error);
+          reject(new Error('Failed to process image: ' + error.message));
+        }
+      } catch (error: any) {
+        console.error('❌ Image upload failed:', error);
+        reject(error);
       }
-      
-      // Fall back to local storage
-      console.log('📦 Falling back to local storage...');
-    }
-  }
+    };
 
-  // Fallback to local storage (existing implementation)
-  try {
-    console.log('🟡 Using local storage fallback for:', file.name);
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-
-    const resizedImage = await resizeImage(file);
-    
-    // Generate a unique filename
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2);
-    const extension = file.name.split('.').pop() || 'jpg';
-    const filename = `${folder}/${timestamp}-${randomId}.${extension}`;
-    
-    // Store in localStorage for persistence
-    localStorage.setItem(`uploaded_image_${filename}`, resizedImage);
-    
-    console.log('✅ Local storage upload successful');
-    console.log('📸 Local Image URL:', `local://${filename}`);
-    
-    // Return the "URL"
-    return `local://${filename}`;
-  } catch (error: any) {
-    console.error('❌ Local storage upload failed:', error);
-    throw new Error('Failed to process image: ' + error.message);
-  }
+    // Add to queue for parallel processing
+    uploadQueue.push(uploadOperation);
+    processUploadQueue();
+  });
 };
 
 // Get uploaded image URL
@@ -180,16 +243,18 @@ export const getImageUrl = (path: string): string => {
   return 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400';
 };
 
-// Upload multiple images
+// ✅ OPTIMIZED: Enhanced multiple image upload with parallel processing
 export const uploadMultipleImages = async (files: File[], folder: string = 'listings'): Promise<string[]> => {
-  console.log(`🟡 Starting batch upload of ${files.length} images`);
+  console.log(`🟡 Starting optimized batch upload of ${files.length} images`);
   
   try {
+    // ✅ OPTIMIZED: Process uploads in parallel with concurrency limit
     const uploadPromises = files.map((file, index) => {
       console.log(`📤 Queuing upload ${index + 1}/${files.length}:`, file.name);
       return uploadImage(file, folder);
     });
     
+    // Process all uploads in parallel
     const results = await Promise.all(uploadPromises);
     console.log(`✅ Batch upload completed: ${results.length} images uploaded successfully`);
     
@@ -232,6 +297,4 @@ export const deleteImage = async (path: string): Promise<void> => {
       console.error('❌ Error deleting from local storage:', error);
     }
   }
-  
-  await new Promise(resolve => setTimeout(resolve, 500));
 };
