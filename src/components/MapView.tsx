@@ -255,6 +255,16 @@ const MapView: React.FC = () => {
     }
   }, [listings]);
 
+  // Helper function to choose an emoji based on rating
+  const getRatingEmojiForMarker = (rating: number) => {
+    if (rating >= 4.5) return '💎';     // Perfect
+    if (rating >= 3.5) return '✨';     // Great
+    if (rating >= 2.5) return '📦';     // Okay
+    if (rating >= 1.5) return '💩';     // Poor
+    if (rating > 0)    return '🗑️';    // Trash
+    return '❓';                         // Unrated
+  };
+
   const addMarkersToMap = () => {
     if (!googleMapRef.current || !window.google) return;
 
@@ -280,8 +290,10 @@ const MapView: React.FC = () => {
       markersRef.current.push(userMarker);
     }
 
-    // Add box markers
+    // Add box markers with emoji labels based on rating
     listings.forEach((box) => {
+      const emoji = getRatingEmojiForMarker(box.rating || 0);
+      
       const marker = new window.google.maps.Marker({
         position: {
           lat: box.location.coordinates.latitude,
@@ -289,14 +301,11 @@ const MapView: React.FC = () => {
         },
         map: googleMapRef.current,
         title: box.title,
-        icon: {
-          path: window.google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-          scale: 6,
-          fillColor: box.isSpotted ? '#f97316' : '#C0C0C0',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2,
-        },
+        label: {
+          text: emoji,
+          fontSize: "18px",
+          fontWeight: "bold"
+        }
       });
 
       const infoWindow = new window.google.maps.InfoWindow({
@@ -434,7 +443,7 @@ const MapView: React.FC = () => {
   const handleRating = async (rating: number) => {
     if (selectedBox && user) {
       try {
-        await addRatingToListing(selectedBox.id!, user.uid, rating);
+        await addRatingToListing(selectedBox.id!, rating, user.uid);
         
         // Update local state
         const updatedBox = { ...selectedBox };
