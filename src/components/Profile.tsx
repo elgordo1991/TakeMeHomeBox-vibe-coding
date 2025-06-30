@@ -110,17 +110,57 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Calculate user rank based on activity
+  // ✅ UPDATED: Calculate user rank based on total activity
   const calculateRank = () => {
     if (!user) return { emoji: '🆕', title: 'Noob', level: 1 };
     
-    const totalActivity = user.itemsGiven + user.itemsTaken;
+    // Calculate total activity from both itemsGiven and itemsTaken
+    const totalActivity = (user.itemsGiven || 0) + (user.itemsTaken || 0);
     
+    // Updated rank thresholds and titles
     if (totalActivity >= 50) return { emoji: '💎', title: 'Treasure Hunter', level: 5 };
     if (totalActivity >= 25) return { emoji: '🪙', title: 'Giver', level: 4 };
     if (totalActivity >= 15) return { emoji: '🎒', title: 'Scavenger', level: 3 };
     if (totalActivity >= 5) return { emoji: '🧹', title: 'Forager', level: 2 };
     return { emoji: '🆕', title: 'Noob', level: 1 };
+  };
+
+  // ✅ NEW: Calculate progress to next rank
+  const calculateProgress = () => {
+    if (!user) return { current: 0, next: 5, progress: 0, isMaxLevel: false };
+    
+    const totalActivity = (user.itemsGiven || 0) + (user.itemsTaken || 0);
+    const levelThresholds = [5, 15, 25, 50]; // Level thresholds
+    
+    // Find the next level threshold
+    const nextThreshold = levelThresholds.find(threshold => totalActivity < threshold);
+    
+    if (!nextThreshold) {
+      // User is at max level
+      return {
+        current: totalActivity,
+        next: 50,
+        progress: 100,
+        isMaxLevel: true
+      };
+    }
+    
+    // Find current level threshold
+    const currentThresholdIndex = levelThresholds.indexOf(nextThreshold) - 1;
+    const currentThreshold = currentThresholdIndex >= 0 ? levelThresholds[currentThresholdIndex] : 0;
+    
+    // Calculate progress within current level
+    const progressInLevel = totalActivity - currentThreshold;
+    const levelRange = nextThreshold - currentThreshold;
+    const progressPercentage = (progressInLevel / levelRange) * 100;
+    
+    return {
+      current: totalActivity,
+      next: nextThreshold,
+      progress: Math.min(progressPercentage, 100),
+      isMaxLevel: false,
+      activitiesNeeded: nextThreshold - totalActivity
+    };
   };
 
   // Get rating emoji based on average rating
@@ -164,7 +204,9 @@ const Profile: React.FC = () => {
   }
 
   const rank = calculateRank();
+  const progress = calculateProgress();
   const ratingEmoji = getRatingEmoji(user.rating);
+  const totalActivity = (user.itemsGiven || 0) + (user.itemsTaken || 0);
 
   const filteredListings = userListings.filter(listing => listing.status === activeTab);
 
@@ -274,8 +316,8 @@ const Profile: React.FC = () => {
           )}
         </div>
 
-        {/* Stats Summary */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* ✅ UPDATED: Enhanced Stats Summary with Total Activity */}
+        <div className="grid grid-cols-3 gap-4">
           <div className="card-dark p-4">
             <div className="flex items-center space-x-3">
               <div className="bg-dark-blue-light p-3 rounded-lg border border-silver/30">
@@ -283,9 +325,9 @@ const Profile: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-silver-light">
-                  {userListings.length}
+                  {user.itemsGiven || 0}
                 </p>
-                <p className="text-sm text-silver">Total Listings</p>
+                <p className="text-sm text-silver">Items Given</p>
               </div>
             </div>
           </div>
@@ -297,15 +339,29 @@ const Profile: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-silver-light">
-                  {user.itemsTaken}
+                  {user.itemsTaken || 0}
                 </p>
-                <p className="text-sm text-silver">Boxes Found</p>
+                <p className="text-sm text-silver">Items Found</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-dark p-4">
+            <div className="flex items-center space-x-3">
+              <div className="bg-dark-blue-light p-3 rounded-lg border border-silver/30">
+                <span className="text-2xl">🏆</span>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-silver-light">
+                  {totalActivity}
+                </p>
+                <p className="text-sm text-silver">Total Activity</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Rank & Progress Section */}
+        {/* ✅ UPDATED: Enhanced Rank & Progress Section */}
         <div className="card-dark p-6">
           <h3 className="font-semibold text-silver-light mb-4">Community Rank</h3>
           
@@ -322,31 +378,74 @@ const Profile: React.FC = () => {
               <div className="text-right">
                 <p className="text-sm text-silver/60">Level {rank.level}</p>
                 <p className="text-xs text-silver/60">
-                  {user.itemsGiven + user.itemsTaken} total activities
+                  {totalActivity} total activities
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Progress to next rank */}
-          {rank.level < 5 && (
+          {/* ✅ UPDATED: Progress to next rank with improved calculation */}
+          {!progress.isMaxLevel && (
             <div className="p-3 bg-dark-blue rounded-lg border border-silver/30">
-              <p className="text-sm text-silver mb-2">
-                Progress to next rank
-              </p>
-              <div className="w-full bg-dark-blue-light rounded-full h-2">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-silver">
+                  Progress to next rank
+                </p>
+                <p className="text-xs text-silver/60">
+                  {progress.current}/{progress.next}
+                </p>
+              </div>
+              <div className="w-full bg-dark-blue-light rounded-full h-2 mb-2">
                 <div 
                   className="bg-silver h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${Math.min(100, ((user.itemsGiven + user.itemsTaken) % 10) * 10)}%` 
-                  }}
+                  style={{ width: `${progress.progress}%` }}
                 ></div>
               </div>
-              <p className="text-xs text-silver/60 mt-1">
-                {10 - ((user.itemsGiven + user.itemsTaken) % 10)} more activities needed
+              <p className="text-xs text-silver/60">
+                {progress.activitiesNeeded} more activities needed for {
+                  progress.next === 5 ? '🧹 Forager' :
+                  progress.next === 15 ? '🎒 Scavenger' :
+                  progress.next === 25 ? '🪙 Giver' :
+                  progress.next === 50 ? '💎 Treasure Hunter' : 'next level'
+                }
               </p>
             </div>
           )}
+
+          {/* Max Level Achievement */}
+          {progress.isMaxLevel && (
+            <div className="p-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg border border-yellow-500/30">
+              <div className="text-center">
+                <span className="text-3xl mb-2 block">🏆</span>
+                <p className="text-yellow-400 font-bold">Maximum Rank Achieved!</p>
+                <p className="text-yellow-400/80 text-sm">
+                  You've reached the highest community rank with {totalActivity} activities!
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Activity Breakdown */}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="bg-dark-blue rounded-lg p-3 border border-silver/20">
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">📤</span>
+                <div>
+                  <p className="text-silver font-medium">{user.itemsGiven || 0}</p>
+                  <p className="text-xs text-silver/60">Items Given</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-dark-blue rounded-lg p-3 border border-silver/20">
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">📥</span>
+                <div>
+                  <p className="text-silver font-medium">{user.itemsTaken || 0}</p>
+                  <p className="text-xs text-silver/60">Items Found</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* My Listings Section */}
