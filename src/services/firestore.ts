@@ -40,10 +40,20 @@ export interface BoxListing {
   username: string;
   rating: number;
   ratings: { userId: string; rating: number; comment?: string }[];
+  comments: Comment[];
   status: 'active' | 'taken' | 'expired';
   createdAt: Timestamp;
   updatedAt: Timestamp;
   expiresAt?: Timestamp;
+}
+
+export interface Comment {
+  id?: string;
+  userId: string;
+  username: string;
+  userAvatar?: string;
+  text: string;
+  createdAt: Timestamp;
 }
 
 export interface BoxListingInput {
@@ -161,6 +171,7 @@ export async function createListing(listingData: BoxListingInput): Promise<strin
       username: listingData.username,
       rating: 0,
       ratings: [],
+      comments: [], // Initialize empty comments array
       status: 'active',
       createdAt: now,
       updatedAt: now,
@@ -467,6 +478,51 @@ export const addRatingToListing = async (
     
     console.log(`✅ Rating added to listing ${listingId}: ${ratingValue}/5 (new avg: ${avg.toFixed(2)})`);
   }, 'addRatingToListing');
+};
+
+// ✅ NEW: Add comment to listing
+export const addCommentToListing = async (
+  listingId: string,
+  userId: string,
+  username: string,
+  text: string,
+  userAvatar?: string
+): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
+
+  if (!listingId || !userId || !username || !text.trim()) {
+    throw new Error('Missing required parameters for comment');
+  }
+
+  if (text.trim().length > 500) {
+    throw new Error('Comment must be 500 characters or less');
+  }
+
+  return withRetry(async () => {
+    const ref = doc(db, LISTINGS_COLLECTION, listingId);
+    const snap = await getDoc(ref);
+    
+    if (!snap.exists()) {
+      throw new Error('Listing not found');
+    }
+
+    const newComment: Comment = {
+      userId,
+      username,
+      text: text.trim(),
+      createdAt: serverTimestamp() as Timestamp,
+      ...(userAvatar && { userAvatar })
+    };
+
+    await updateDoc(ref, {
+      comments: arrayUnion(newComment),
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log(`✅ Comment added to listing ${listingId} by ${username}`);
+  }, 'addCommentToListing');
 };
 
 // Delete listing

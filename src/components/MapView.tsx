@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle, Wifi, WifiOff, RefreshCw, Send, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
 import { 
   subscribeToListings, 
   addRatingToListing, 
+  addCommentToListing,
   updateListingStatus,
   calculateDistance,
   enableFirestoreNetwork,
@@ -34,6 +35,7 @@ const MapView: React.FC = () => {
   const [selectedBox, setSelectedBox] = useState<BoxListingWithDistance | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showRating, setShowRating] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [mapsError, setMapsError] = useState<string | null>(null);
@@ -45,6 +47,9 @@ const MapView: React.FC = () => {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [ratingLoading, setRatingLoading] = useState(false);
   const [ratingError, setRatingError] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -531,6 +536,86 @@ const MapView: React.FC = () => {
     }
   };
 
+  const handleComment = async () => {
+    if (!selectedBox || !user) {
+      setCommentError('Authentication required to comment');
+      return;
+    }
+
+    if (!selectedBox.id) {
+      setCommentError('Invalid listing ID');
+      return;
+    }
+
+    if (!commentText.trim()) {
+      setCommentError('Please enter a comment');
+      return;
+    }
+
+    if (commentText.trim().length > 500) {
+      setCommentError('Comment must be 500 characters or less');
+      return;
+    }
+
+    console.log('🟡 Attempting to add comment:', {
+      listingId: selectedBox.id,
+      userId: user.uid,
+      username: user.username,
+      text: commentText.trim()
+    });
+
+    setCommentLoading(true);
+    setCommentError(null);
+
+    try {
+      await addCommentToListing(
+        selectedBox.id,
+        user.uid,
+        user.username,
+        commentText.trim(),
+        user.avatar
+      );
+      
+      // Update local state immediately for better UX
+      const updatedBox = { ...selectedBox };
+      const newComment = {
+        userId: user.uid,
+        username: user.username,
+        text: commentText.trim(),
+        createdAt: { toDate: () => new Date() } as any,
+        ...(user.avatar && { userAvatar: user.avatar })
+      };
+      
+      updatedBox.comments = [...(updatedBox.comments || []), newComment];
+      setSelectedBox(updatedBox);
+      setCommentText('');
+      
+      console.log('✅ Comment saved successfully');
+      
+    } catch (error: any) {
+      console.error('❌ Error adding comment:', error);
+      
+      // Provide specific error messages
+      if (error.message.includes('Missing required parameters')) {
+        setCommentError('Invalid comment data. Please try again.');
+      } else if (error.message.includes('Comment must be 500 characters or less')) {
+        setCommentError('Comment is too long. Please keep it under 500 characters.');
+      } else if (error.message.includes('Listing not found')) {
+        setCommentError('This listing no longer exists.');
+      } else if (error.code === 'permission-denied') {
+        setCommentError('Permission denied. Please check your authentication.');
+      } else if (error.code === 'unauthenticated') {
+        setCommentError('Please sign in to leave comments.');
+      } else if (error.code === 'unavailable') {
+        setCommentError('Service temporarily unavailable. Please try again.');
+      } else {
+        setCommentError(error.message || 'Failed to save comment. Please try again.');
+      }
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
   const handleMarkAsTaken = async () => {
     if (selectedBox && user) {
       try {
@@ -541,6 +626,27 @@ const MapView: React.FC = () => {
         console.error('Error marking as taken:', error);
         alert('Failed to mark as taken. Please try again.');
       }
+    }
+  };
+
+  const getTimeAgo = (timestamp: any) => {
+    if (!timestamp) return 'Unknown';
+    
+    const now = new Date();
+    const created = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const diffMs = now.getTime() - created.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else if (diffMinutes > 0) {
+      return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+    } else {
+      return 'Just now';
     }
   };
 
@@ -768,9 +874,13 @@ const MapView: React.FC = () => {
                     onClick={() => {
                       setSelectedBox(null);
                       setShowRating(false);
+                      setShowComments(false);
                       setHoverRating(0);
                       setRatingError(null);
                       setRatingLoading(false);
+                      setCommentText('');
+                      setCommentError(null);
+                      setCommentLoading(false);
                     }}
                     className="text-silver/60 hover:text-silver"
                   >
@@ -840,41 +950,167 @@ const MapView: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                ) : showComments ? (
+                  /* Comments Section */
+                  <div className="bg-dark-blue-light rounded-xl p-4 mb-4 border border-silver/30">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-silver-light">
+                        Comments ({selectedBox.comments?.length || 0})
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowComments(false);
+                          setCommentText('');
+                          setCommentError(null);
+                        }}
+                        className="text-silver/60 hover:text-silver"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    {/* Comments List */}
+                    <div className="max-h-48 overflow-y-auto mb-4 space-y-3">
+                      {selectedBox.comments && selectedBox.comments.length > 0 ? (
+                        selectedBox.comments.map((comment, index) => (
+                          <div key={index} className="bg-dark-blue rounded-lg p-3 border border-silver/20">
+                            <div className="flex items-start space-x-3">
+                              {comment.userAvatar ? (
+                                <img
+                                  src={comment.userAvatar}
+                                  alt={comment.username}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-silver/20 flex items-center justify-center">
+                                  <span className="text-silver text-sm font-medium">
+                                    {comment.username.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-silver font-medium text-sm">
+                                    {comment.username}
+                                  </span>
+                                  <span className="text-silver/60 text-xs">
+                                    {getTimeAgo(comment.createdAt)}
+                                  </span>
+                                </div>
+                                <p className="text-silver text-sm">
+                                  {comment.text}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4">
+                          <MessageCircle className="w-8 h-8 text-silver/40 mx-auto mb-2" />
+                          <p className="text-silver/60 text-sm">No comments yet</p>
+                          <p className="text-silver/40 text-xs">Be the first to leave a comment!</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Add Comment Form */}
+                    {user && (
+                      <div className="space-y-3">
+                        <div className="relative">
+                          <textarea
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            placeholder="Leave a comment..."
+                            rows={3}
+                            maxLength={500}
+                            disabled={commentLoading}
+                            className="input-dark w-full p-3 rounded-lg resize-none disabled:opacity-50"
+                          />
+                          <div className="absolute bottom-2 right-2 text-xs text-silver/60">
+                            {commentText.length}/500
+                          </div>
+                        </div>
+                        
+                        {commentError && (
+                          <div className="text-red-400 text-sm">
+                            {commentError}
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between items-center">
+                          <button
+                            onClick={() => {
+                              setShowComments(false);
+                              setCommentText('');
+                              setCommentError(null);
+                            }}
+                            disabled={commentLoading}
+                            className="btn-secondary disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleComment}
+                            disabled={commentLoading || !commentText.trim() || connectionStatus === 'offline'}
+                            className="btn-primary flex items-center space-x-2 disabled:opacity-50"
+                          >
+                            {commentLoading ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                                <span>Posting...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Send className="w-4 h-4" />
+                                <span>Post Comment</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex space-x-3 mb-4">
                     {user && (
-                      <button 
-                        onClick={() => {
-                          setShowRating(true);
-                          setRatingError(null);
-                        }}
-                        className="btn-primary flex-1 flex items-center justify-center space-x-2"
-                        disabled={connectionStatus === 'offline'}
-                      >
-                        <span>{getRatingEmoji(5)}</span>
-                        <span>Rate Box</span>
-                      </button>
-                    )}
-                    {user && user.uid !== selectedBox.userId && (
-                      <button 
-                        onClick={handleMarkAsTaken}
-                        className="btn-secondary flex-1 flex items-center justify-center space-x-2"
-                        disabled={connectionStatus === 'offline'}
-                      >
-                        <Camera className="w-4 h-4" />
-                        <span>Mark Taken</span>
-                      </button>
+                      <>
+                        <button 
+                          onClick={() => {
+                            setShowRating(true);
+                            setRatingError(null);
+                          }}
+                          className="btn-primary flex-1 flex items-center justify-center space-x-2"
+                          disabled={connectionStatus === 'offline'}
+                        >
+                          <span>{getRatingEmoji(5)}</span>
+                          <span>Rate Box</span>
+                        </button>
+                        {user.uid !== selectedBox.userId && (
+                          <button 
+                            onClick={handleMarkAsTaken}
+                            className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+                            disabled={connectionStatus === 'offline'}
+                          >
+                            <Camera className="w-4 h-4" />
+                            <span>Mark Taken</span>
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
                 
-                {user && (
+                {user && !showRating && !showComments && (
                   <button 
+                    onClick={() => {
+                      setShowComments(true);
+                      setCommentError(null);
+                    }}
                     className="btn-primary w-full flex items-center justify-center space-x-2"
                     disabled={connectionStatus === 'offline'}
                   >
                     <MessageCircle className="w-4 h-4" />
-                    <span>Leave Comment</span>
+                    <span>Leave Comment ({selectedBox.comments?.length || 0})</span>
                   </button>
                 )}
 
