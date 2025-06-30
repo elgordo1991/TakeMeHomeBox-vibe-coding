@@ -4,6 +4,7 @@ import BottomNavigation from './BottomNavigation';
 import MapView from './MapView';
 import Profile from './Profile';
 import AddListing from './AddListing';
+import Terms from './Terms';
 import Login from './Login';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -24,6 +25,7 @@ const MainApp: React.FC = () => {
           <Route path="/map" element={<MapView />} />
           <Route path="/add" element={<AddListing />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/terms" element={<Terms />} />
         </Routes>
       </div>
       <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />

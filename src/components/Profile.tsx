@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Bell, BellOff, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Bell, BellOff, Trash2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, updateListingStatus, deleteListing, BoxListing } from '../services/firestore';
 import ImageUpload from './ImageUpload';
@@ -647,6 +648,20 @@ const Profile: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* ✅ NEW: Terms & Conditions Link */}
+            <div className="p-4">
+              <Link
+                to="/terms"
+                className="flex items-center space-x-3 hover:bg-dark-blue-light/50 transition-colors rounded-lg p-2 -m-2"
+              >
+                <FileText className="w-5 h-5 text-silver" />
+                <div>
+                  <p className="text-silver font-medium">Terms & Conditions</p>
+                  <p className="text-sm text-silver/60">View our terms and policies</p>
+                </div>
+              </Link>
             </div>
 
             {/* Logout */}
