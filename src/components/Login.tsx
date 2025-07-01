@@ -44,7 +44,7 @@ const Login: React.FC = () => {
     }
   };
 
-  // ✅ OPTIMIZED: Lazy load Google Sign-In only when needed
+  // ✅ FIXED: Proper redirect URI configuration for production
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     
@@ -59,12 +59,19 @@ const Login: React.FC = () => {
 
       if (window.google && window.google.accounts && window.google.accounts.id && buttonEl) {
         try {
+          // ✅ FIXED: Configure for both development and production
+          const currentOrigin = window.location.origin;
+          const isProduction = currentOrigin.includes('tmhb.xyz');
+          
           window.google.accounts.id.initialize({
             client_id: clientId,
             callback: handleGoogleSignIn,
             auto_select: false,
             cancel_on_tap_outside: true,
-            ux_mode: 'redirect'
+            // ✅ FIXED: Use popup mode for better compatibility
+            ux_mode: 'popup',
+            // ✅ FIXED: Set allowed origins dynamically
+            allowed_parent_origin: [currentOrigin],
           });
 
           window.google.accounts.id.renderButton(buttonEl, {
