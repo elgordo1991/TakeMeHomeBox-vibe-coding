@@ -30,7 +30,7 @@ const Login: React.FC = () => {
     return null;
   }
 
-  // ✅ OPTIMIZED: Faster Google sign-in handling
+  // ✅ FIXED: Enhanced Google Sign-In handling for production
   const handleGoogleSignIn = async (response: any) => {
     try {
       setLoading(true);
@@ -44,7 +44,7 @@ const Login: React.FC = () => {
     }
   };
 
-  // ✅ FIXED: Proper redirect URI configuration for production
+  // ✅ FIXED: Improved Google Sign-In initialization for production
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     
@@ -53,26 +53,32 @@ const Login: React.FC = () => {
       return;
     }
     
-    // Delay Google initialization to improve initial page load
     const initializeGoogleSignIn = () => {
       const buttonEl = document.getElementById("google-signin-button");
 
       if (window.google && window.google.accounts && window.google.accounts.id && buttonEl) {
         try {
-          // ✅ FIXED: Configure for both development and production
+          // ✅ FIXED: Production-ready configuration
           const currentOrigin = window.location.origin;
-          const isProduction = currentOrigin.includes('tmhb.xyz');
+          const isProduction = currentOrigin.includes('tmhb.xyz') || currentOrigin.includes('netlify.app');
+          
+          console.log('Initializing Google Sign-In for:', currentOrigin);
           
           window.google.accounts.id.initialize({
             client_id: clientId,
             callback: handleGoogleSignIn,
             auto_select: false,
             cancel_on_tap_outside: true,
-            // ✅ FIXED: Use popup mode for better compatibility
+            // ✅ FIXED: Force popup mode to avoid redirect issues
             ux_mode: 'popup',
-            // ✅ FIXED: Set allowed origins dynamically
-            allowed_parent_origin: [currentOrigin],
+            // ✅ FIXED: Explicitly set context for production
+            context: isProduction ? 'signin' : 'signin',
+            // ✅ FIXED: Set itp_support for better compatibility
+            itp_support: true,
           });
+
+          // ✅ FIXED: Clear any existing content first
+          buttonEl.innerHTML = '';
 
           window.google.accounts.id.renderButton(buttonEl, {
             theme: "filled_blue",
@@ -81,9 +87,12 @@ const Login: React.FC = () => {
             text: isLogin ? "signin_with" : "signup_with",
             shape: "rectangular",
             type: "standard",
+            // ✅ FIXED: Ensure proper styling
+            logo_alignment: "left",
           });
 
           setGoogleLoaded(true);
+          console.log('Google Sign-In initialized successfully');
         } catch (error) {
           console.error("Google Sign-In initialization error:", error);
           setGoogleLoaded(false);
@@ -91,31 +100,63 @@ const Login: React.FC = () => {
       }
     };
 
-    // ✅ OPTIMIZED: Load Google script only when component is visible
+    // ✅ FIXED: Better script loading with error handling
     const loadGoogleScript = () => {
-      if (!window.google || !window.google.accounts) {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-          setTimeout(initializeGoogleSignIn, 100);
-        };
-        script.onerror = () => {
-          console.error('Failed to load Google Sign-In script');
-          setGoogleLoaded(false);
-        };
-        document.body.appendChild(script);
-      } else {
+      // Check if already loaded
+      if (window.google && window.google.accounts) {
         initializeGoogleSignIn();
+        return;
       }
+
+      // Check if script is already in DOM
+      const existingScript = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+      if (existingScript) {
+        // Wait for it to load
+        const checkLoaded = () => {
+          if (window.google && window.google.accounts) {
+            initializeGoogleSignIn();
+          } else {
+            setTimeout(checkLoaded, 100);
+          }
+        };
+        checkLoaded();
+        return;
+      }
+
+      // Load the script
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        console.log('Google Sign-In script loaded');
+        // Small delay to ensure everything is ready
+        setTimeout(initializeGoogleSignIn, 200);
+      };
+      
+      script.onerror = (error) => {
+        console.error('Failed to load Google Sign-In script:', error);
+        setGoogleLoaded(false);
+        setError('Failed to load Google Sign-In. Please check your internet connection.');
+      };
+      
+      document.head.appendChild(script);
     };
 
-    // Delay loading to improve initial render performance
-    const timer = setTimeout(loadGoogleScript, 500);
+    // ✅ FIXED: Immediate loading for better UX
+    loadGoogleScript();
 
+    // Cleanup function
     return () => {
-      clearTimeout(timer);
+      // Clean up any existing Google Sign-In instances
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        try {
+          window.google.accounts.id.cancel();
+        } catch (error) {
+          console.warn('Error cleaning up Google Sign-In:', error);
+        }
+      }
     };
   }, [isLogin, user]);
 
@@ -250,19 +291,26 @@ const Login: React.FC = () => {
     }
   };
 
+  // ✅ FIXED: Improved Google fallback with better error handling
   const handleGoogleFallback = () => {
     if (window.google && window.google.accounts && window.google.accounts.id) {
       try {
+        // ✅ FIXED: Use prompt() method for better compatibility
         window.google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            setError('Google Sign-In is temporarily unavailable. Please use email login or try refreshing the page.');
+          if (notification.isNotDisplayed()) {
+            setError('Google Sign-In popup was blocked. Please allow popups for this site and try again.');
+          } else if (notification.isSkippedMoment()) {
+            setError('Google Sign-In was cancelled. Please try again.');
+          } else if (notification.isDismissedMoment()) {
+            setError('Google Sign-In was dismissed. Please try again.');
           }
         });
       } catch (error) {
-        setError('Google Sign-In is not available. Please use email login or try refreshing the page.');
+        console.error('Google prompt error:', error);
+        setError('Google Sign-In is temporarily unavailable. Please use email login or refresh the page.');
       }
     } else {
-      setError('Google Sign-In is not available. Please use email login or try refreshing the page.');
+      setError('Google Sign-In is not available. Please use email login or refresh the page.');
     }
   };
 
