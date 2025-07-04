@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 
 const firebaseConfig = {
@@ -60,29 +60,10 @@ try {
   if (missingVars.length === 0) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    storage = getStorage(app);
     
-    // ✅ FIXED: Use regular Firestore for production to avoid connection issues
-    try {
-      // Only use persistent cache in development
-      if (import.meta.env.DEV) {
-        db = initializeFirestore(app, {
-          localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager()
-          })
-        });
-        console.log('✅ Firestore initialized with persistent cache (development)');
-      } else {
-        // Use regular Firestore in production for better stability
-        db = getFirestore(app);
-        console.log('✅ Firestore initialized (production)');
-      }
-    } catch (error) {
-      // Fallback to regular Firestore if persistent cache fails
-      console.warn('⚠️ Persistent cache failed, using regular Firestore:', error);
-      db = getFirestore(app);
-      console.log('✅ Firestore initialized with fallback');
-    }
+    // ✅ FIXED: Use standard Firestore initialization for production stability
+    db = getFirestore(app);
+    storage = getStorage(app);
     
     console.log('✅ Firebase initialized successfully');
   } else {
@@ -99,7 +80,7 @@ try {
   storage = null as any;
 }
 
-// Optional: Connect to emulators in development
+// Optional: Connect to emulators in development only
 if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV && auth && db && storage) {
   try {
     // Connect to Auth emulator

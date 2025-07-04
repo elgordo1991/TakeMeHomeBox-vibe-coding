@@ -13,12 +13,6 @@ import {
   serverTimestamp,
   GeoPoint,
   Timestamp,
-  enableNetwork,
-  disableNetwork,
-  connectFirestoreEmulator,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
   arrayUnion,
   getDoc,
   increment,
@@ -522,22 +516,12 @@ export const subscribeToListings = (
 
     console.log('🔄 Subscribing to listings updates...');
     
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    let reconnectTimeout: NodeJS.Timeout | null = null;
-    
     // ✅ OPTIMIZED: Debounce updates to prevent excessive re-renders
     let debounceTimeout: NodeJS.Timeout | null = null;
     
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
-        reconnectAttempts = 0;
         connectionState = 'connected';
-        
-        if (reconnectTimeout) {
-          clearTimeout(reconnectTimeout);
-          reconnectTimeout = null;
-        }
         
         const listings = querySnapshot.docs.map(doc => ({
           id: doc.id,
@@ -565,26 +549,9 @@ export const subscribeToListings = (
         if (error.code === 'permission-denied') {
           console.error('Permission denied for real-time updates. Check security rules.');
           callback(getCachedListings());
-        } else if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
-          console.error('Firestore unavailable for real-time updates.');
-          
-          // Use cached data immediately
+        } else if (error.code === 'unavailable' || error.code === 'deadline-exceeded' || error.code === 'failed-precondition') {
+          console.error('Firestore temporarily unavailable. Using cached data.');
           callback(getCachedListings());
-          
-          // Implement exponential backoff for reconnection
-          if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++;
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
-            console.log(`⏳ Attempting to reconnect in ${delay}ms... (attempt ${reconnectAttempts})`);
-            
-            connectionState = 'reconnecting';
-            reconnectTimeout = setTimeout(() => {
-              enableNetwork(db).catch(console.error);
-            }, delay);
-          } else {
-            console.error('Max reconnection attempts reached. Using cached data.');
-            callback(getCachedListings());
-          }
         } else if (error.code === 'unauthenticated') {
           console.error('Authentication required for real-time updates.');
           callback(getCachedListings());
@@ -596,9 +563,6 @@ export const subscribeToListings = (
     );
     
     return () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
       if (debounceTimeout) {
         clearTimeout(debounceTimeout);
       }
@@ -962,48 +926,5 @@ export const getNearbyListings = async (
   });
 };
 
-// Network status management
-export const enableFirestoreNetwork = async (): Promise<void> => {
-  if (isFirebaseConfigured()) {
-    try {
-      await enableNetwork(db);
-      connectionState = 'connected';
-      console.log('✅ Firestore network enabled');
-    } catch (error) {
-      console.error('❌ Error enabling Firestore network:', error);
-      connectionState = 'disconnected';
-    }
-  }
-};
-
-export const disableFirestoreNetwork = async (): Promise<void> => {
-  if (isFirebaseConfigured()) {
-    try {
-      await disableNetwork(db);
-      connectionState = 'disconnected';
-      console.log('✅ Firestore network disabled');
-    } catch (error) {
-      console.error('❌ Error disabling Firestore network:', error);
-    }
-  }
-};
-
 // Get current connection state
 export const getConnectionState = () => connectionState;
-
-// Force reconnection
-export const forceReconnect = async (): Promise<void> => {
-  if (isFirebaseConfigured()) {
-    try {
-      await disableNetwork(db);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await enableNetwork(db);
-      connectionState = 'connected';
-      console.log('✅ Firestore reconnected successfully');
-    } catch (error) {
-      console.error('❌ Error during forced reconnection:', error);
-      connectionState = 'disconnected';
-      throw error;
-    }
-  }
-};
