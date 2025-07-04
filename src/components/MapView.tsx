@@ -10,9 +10,7 @@ import {
   updateListingStatus,
   markListingAsFound,
   calculateDistance,
-  enableFirestoreNetwork,
   getConnectionState,
-  forceReconnect,
   BoxListing 
 } from '../services/firestore';
 
@@ -90,7 +88,6 @@ const MapView: React.FC = () => {
     const handleOnline = () => {
       setConnectionStatus('online');
       setRetryCount(0);
-      enableFirestoreNetwork();
     };
 
     const handleOffline = () => {
@@ -371,7 +368,6 @@ const MapView: React.FC = () => {
     setRetryCount(prev => prev + 1);
     
     try {
-      await forceReconnect();
       setConnectionStatus('online');
       setRetryCount(0);
       
