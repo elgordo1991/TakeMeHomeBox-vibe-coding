@@ -24,7 +24,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, setActiv
 
   const getCurrentTab = () => {
     const currentPath = location.pathname;
-    return tabs.find(tab => tab.path === currentPath)?.id || 'map';
+    return tabs.find(tab => tab.path === currentPath)?.id || 'profile';
   };
 
   const currentTab = getCurrentTab();
