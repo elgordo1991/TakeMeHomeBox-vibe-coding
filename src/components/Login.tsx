@@ -2,16 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Mail, Lock, User, MessageCircle, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-declare global {
-  interface Window {
-    google: any;
-  }
-}
-
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [googleLoaded, setGoogleLoaded] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,142 +16,12 @@ const Login: React.FC = () => {
     bio: ''
   });
 
-  const { login, signup, loginWithGoogle, user } = useAuth();
+  const { login, signup, user } = useAuth();
 
   // If already logged in, don't show login page
   if (user) {
     return null;
   }
-
-  // ✅ FIXED: Enhanced Google Sign-In handling for production
-  const handleGoogleSignIn = async (response: any) => {
-    try {
-      setLoading(true);
-      setError('');
-      await loginWithGoogle(response.credential);
-    } catch (error: any) {
-      console.error("Google Sign-In error:", error);
-      setError(error.message || 'Google sign-in failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ FIXED: Improved Google Sign-In initialization for production
-  useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    
-    // Only initialize if we have a client ID and user is not logged in
-    if (!clientId || clientId === 'your_google_client_id_here' || user) {
-      return;
-    }
-    
-    const initializeGoogleSignIn = () => {
-      const buttonEl = document.getElementById("google-signin-button");
-
-      if (window.google && window.google.accounts && window.google.accounts.id && buttonEl) {
-        try {
-          // ✅ FIXED: Production-ready configuration
-          const currentOrigin = window.location.origin;
-          const isProduction = currentOrigin.includes('tmhb.xyz') || currentOrigin.includes('netlify.app');
-          
-          console.log('Initializing Google Sign-In for:', currentOrigin);
-          
-          window.google.accounts.id.initialize({
-            client_id: clientId,
-            callback: handleGoogleSignIn,
-            auto_select: false,
-            cancel_on_tap_outside: true,
-            // ✅ FIXED: Force popup mode to avoid redirect issues
-            ux_mode: 'popup',
-            // ✅ FIXED: Explicitly set context for production
-            context: isProduction ? 'signin' : 'signin',
-            // ✅ FIXED: Set itp_support for better compatibility
-            itp_support: true,
-          });
-
-          // ✅ FIXED: Clear any existing content first
-          buttonEl.innerHTML = '';
-
-          window.google.accounts.id.renderButton(buttonEl, {
-            theme: "filled_blue",
-            size: "large",
-            width: "100%",
-            text: isLogin ? "signin_with" : "signup_with",
-            shape: "rectangular",
-            type: "standard",
-            // ✅ FIXED: Ensure proper styling
-            logo_alignment: "left",
-          });
-
-          setGoogleLoaded(true);
-          console.log('Google Sign-In initialized successfully');
-        } catch (error) {
-          console.error("Google Sign-In initialization error:", error);
-          setGoogleLoaded(false);
-        }
-      }
-    };
-
-    // ✅ FIXED: Better script loading with error handling
-    const loadGoogleScript = () => {
-      // Check if already loaded
-      if (window.google && window.google.accounts) {
-        initializeGoogleSignIn();
-        return;
-      }
-
-      // Check if script is already in DOM
-      const existingScript = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
-      if (existingScript) {
-        // Wait for it to load
-        const checkLoaded = () => {
-          if (window.google && window.google.accounts) {
-            initializeGoogleSignIn();
-          } else {
-            setTimeout(checkLoaded, 100);
-          }
-        };
-        checkLoaded();
-        return;
-      }
-
-      // Load the script
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        console.log('Google Sign-In script loaded');
-        // Small delay to ensure everything is ready
-        setTimeout(initializeGoogleSignIn, 200);
-      };
-      
-      script.onerror = (error) => {
-        console.error('Failed to load Google Sign-In script:', error);
-        setGoogleLoaded(false);
-        setError('Failed to load Google Sign-In. Please check your internet connection.');
-      };
-      
-      document.head.appendChild(script);
-    };
-
-    // ✅ FIXED: Immediate loading for better UX
-    loadGoogleScript();
-
-    // Cleanup function
-    return () => {
-      // Clean up any existing Google Sign-In instances
-      if (window.google && window.google.accounts && window.google.accounts.id) {
-        try {
-          window.google.accounts.id.cancel();
-        } catch (error) {
-          console.warn('Error cleaning up Google Sign-In:', error);
-        }
-      }
-    };
-  }, [isLogin, user]);
 
   // ✅ OPTIMIZED: Debounced username checking
   const checkUsernameAvailability = async (username: string) => {
@@ -291,38 +154,12 @@ const Login: React.FC = () => {
     }
   };
 
-  // ✅ FIXED: Improved Google fallback with better error handling
-  const handleGoogleFallback = () => {
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-      try {
-        // ✅ FIXED: Use prompt() method for better compatibility
-        window.google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed()) {
-            setError('Google Sign-In popup was blocked. Please allow popups for this site and try again.');
-          } else if (notification.isSkippedMoment()) {
-            setError('Google Sign-In was cancelled. Please try again.');
-          } else if (notification.isDismissedMoment()) {
-            setError('Google Sign-In was dismissed. Please try again.');
-          }
-        });
-      } catch (error) {
-        console.error('Google prompt error:', error);
-        setError('Google Sign-In is temporarily unavailable. Please use email login or refresh the page.');
-      }
-    } else {
-      setError('Google Sign-In is not available. Please use email login or refresh the page.');
-    }
-  };
-
   const toggleMode = () => {
     setIsLogin(!isLogin);
     setFormData({ email: '', password: '', username: '', bio: '' });
     setUsernameAvailable(null);
     setError('');
   };
-
-  const hasGoogleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID && 
-                           import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'your_google_client_id_here';
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-shimmer">
@@ -349,42 +186,6 @@ const Login: React.FC = () => {
             <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center space-x-3">
               <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
               <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* Google Sign-In Button */}
-          {hasGoogleClientId && (
-            <div className="mb-6">
-              <div id="google-signin-button" className="w-full flex justify-center min-h-[44px]"></div>
-              
-              {!googleLoaded && (
-                <button
-                  type="button"
-                  onClick={handleGoogleFallback}
-                  disabled={loading}
-                  className="btn-primary w-full flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  <span>Continue with Google</span>
-                </button>
-              )}
-
-              {/* Divider */}
-              <div className="relative mt-6 mb-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-silver/30"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-3 bg-dark-blue text-silver">
-                    Or continue with email
-                  </span>
-                </div>
-              </div>
             </div>
           )}
 

@@ -4,8 +4,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  GoogleAuthProvider,
-  signInWithCredential,
   onAuthStateChanged,
   updateProfile as updateFirebaseProfile,
   User as FirebaseUser,
@@ -31,7 +29,6 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (userData: Partial<User> & { password: string }) => Promise<void>;
-  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
 }
@@ -259,35 +256,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // ✅ OPTIMIZED: Faster Google login
-  const loginWithGoogle = async (credential: string) => {
-    if (!isFirebaseConfigured()) {
-      throw new Error('Firebase is not configured. Please check your environment variables.');
-    }
-
-    try {
-      setLoading(true);
-      const provider = GoogleAuthProvider.credential(credential);
-      const result = await signInWithCredential(auth, provider);
-      const firebaseUser = result.user;
-      
-      // Load existing profile or create new one (will use cache if available)
-      let profile = await loadUserProfile(firebaseUser.uid);
-      
-      if (!profile) {
-        // Create new profile for Google user
-        profile = await createUserProfile(firebaseUser);
-      }
-      
-      setUser(profile);
-    } catch (error: any) {
-      console.error('Google login error:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const logout = async () => {
     if (!isFirebaseConfigured()) {
       setUser(null);
@@ -357,7 +325,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     login,
     signup,
-    loginWithGoogle,
     logout,
     updateProfile,
   };
