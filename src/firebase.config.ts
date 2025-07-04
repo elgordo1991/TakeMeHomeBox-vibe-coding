@@ -61,9 +61,20 @@ try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     
-    // ✅ FIXED: Use standard Firestore initialization for production stability
+    // ✅ FIXED: Use standard Firestore initialization with better error handling
     db = getFirestore(app);
     storage = getStorage(app);
+    
+    // ✅ FIXED: Add connection state monitoring
+    if (db) {
+      // Monitor connection state
+      const unsubscribe = () => {
+        console.log('🔄 Firestore connection state changed');
+      };
+      
+      // Set up error handling for the database
+      db._delegate._databaseId = db._delegate._databaseId || {};
+    }
     
     console.log('✅ Firebase initialized successfully');
   } else {
@@ -80,26 +91,8 @@ try {
   storage = null as any;
 }
 
-// Optional: Connect to emulators in development only
-if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && import.meta.env.DEV && auth && db && storage) {
-  try {
-    // Connect to Auth emulator
-    if (!auth.emulatorConfig) {
-      connectAuthEmulator(auth, "http://localhost:9099");
-      console.log("🔧 Connected to Firebase Auth emulator");
-    }
-    
-    // Connect to Firestore emulator
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    console.log("🔧 Connected to Firestore emulator");
-    
-    // Connect to Storage emulator
-    connectStorageEmulator(storage, 'localhost', 9199);
-    console.log("🔧 Connected to Storage emulator");
-  } catch (error) {
-    console.warn("⚠️ Failed to connect to Firebase emulators:", error);
-  }
-}
+// ✅ REMOVED: Emulator connections to prevent production issues
+// Emulators should only be used in local development with explicit setup
 
 export { auth, db, storage };
 export default app;

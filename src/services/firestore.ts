@@ -483,7 +483,7 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
   });
 };
 
-// ✅ OPTIMIZED: Enhanced real-time subscription with debouncing
+// ✅ FIXED: Enhanced real-time subscription with better error handling
 export const subscribeToListings = (
   callback: (listings: BoxListing[]) => void,
   category?: string

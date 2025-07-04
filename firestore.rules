@@ -10,6 +10,9 @@ service cloud.firestore {
     match /listings/{listingId} {
       // Allow read for all authenticated users if status is active
       allow read: if request.auth != null && resource.data.status == 'active';
+      
+      // Allow read for unauthenticated users for public listings (for better compatibility)
+      allow read: if resource.data.status == 'active';
 
       // Only authenticated users can create listings
       allow create: if request.auth != null && 
