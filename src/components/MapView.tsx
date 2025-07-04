@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, MapPin, Clock, Camera, MessageCircle, Locate, AlertCircle, Wifi, WifiOff, RefreshCw, Send, X, CheckCircle } from 'lucide-react';
+import { Search, MapPin, Clock, MessageCircle, Locate, AlertCircle, Wifi, WifiOff, RefreshCw, Send, X, CheckCircle, Camera } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
@@ -11,7 +11,6 @@ import {
   markListingAsFound,
   calculateDistance,
   enableFirestoreNetwork,
-  disableFirestoreNetwork,
   getConnectionState,
   forceReconnect,
   BoxListing 
@@ -29,7 +28,7 @@ interface BoxListingWithDistance extends BoxListing {
 }
 
 const MapView: React.FC = () => {
-  const { isDark } = useTheme();
+  const { } = useTheme();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -751,7 +750,7 @@ const MapView: React.FC = () => {
               {/* Connection Status Indicator */}
               <div className="flex items-center space-x-1">
                 {connectionStatus === 'online' ? (
-                  <Wifi className="w-4 h-4 text-green-400" title="Connected" />
+                  <span title="Connected"><Wifi className="w-4 h-4 text-green-400"   /></span>
                 ) : connectionStatus === 'reconnecting' ? (
                   <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" title="Reconnecting..." />
                 ) : (
