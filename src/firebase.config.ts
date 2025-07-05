@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator, enableNetwork, disableNetwork } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 
 const firebaseConfig = {
@@ -61,9 +61,32 @@ try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     
-    // ✅ FIXED: Use standard Firestore initialization with better error handling
+    // ✅ ENHANCED: Firestore initialization with connection management
     db = getFirestore(app);
     storage = getStorage(app);
+    
+    // ✅ NEW: Set up connection monitoring
+    if (typeof window !== 'undefined') {
+      // Monitor online/offline status
+      window.addEventListener('online', async () => {
+        console.log('🌐 Network back online, enabling Firestore');
+        try {
+          await enableNetwork(db);
+        } catch (error) {
+          console.warn('Failed to enable Firestore network:', error);
+        }
+      });
+      
+      window.addEventListener('offline', async () => {
+        console.log('📴 Network offline, disabling Firestore');
+        try {
+          await disableNetwork(db);
+        } catch (error) {
+          console.warn('Failed to disable Firestore network:', error);
+        }
+      });
+    }
+    
     console.log('✅ Firebase initialized successfully');
   } else {
     console.warn('⚠️ Firebase not initialized due to missing configuration');

@@ -7,7 +7,6 @@ import {
   getListingsByCategory, 
   markListingAsFound,
   calculateDistance,
-  getConnectionState,
   BoxListing 
 } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,7 +29,6 @@ const MapView: React.FC = () => {
   const [mapsError, setMapsError] = useState<string | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
 
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -65,16 +63,6 @@ const MapView: React.FC = () => {
     };
 
     initializeMaps();
-  }, []);
-
-  // Monitor connection status
-  useEffect(() => {
-    const checkConnection = () => {
-      setConnectionStatus(getConnectionState());
-    };
-
-    const interval = setInterval(checkConnection, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   // Initialize Google Maps
@@ -310,13 +298,6 @@ const MapView: React.FC = () => {
               Community Map
             </h1>
             <div className="flex items-center space-x-2">
-              {/* Connection Status */}
-              <div className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'connected' ? 'bg-green-500' :
-                connectionStatus === 'reconnecting' ? 'bg-yellow-500' :
-                'bg-red-500'
-              }`} title={`Connection: ${connectionStatus}`} />
-              
               <button
                 onClick={getCurrentUserLocation}
                 disabled={loadingLocation}

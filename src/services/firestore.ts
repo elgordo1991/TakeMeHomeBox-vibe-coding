@@ -16,7 +16,9 @@ import {
   arrayUnion,
   getDoc,
   increment,
-  writeBatch
+  writeBatch,
+  enableNetwork,
+  disableNetwork
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
 
@@ -77,6 +79,7 @@ let connectionState: 'connected' | 'disconnected' | 'reconnecting' = 'connected'
 let retryCount = 0;
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 5000];
+let isOfflineMode = false;
 
 // ✅ OPTIMIZED: Request queue for batching operations
 interface QueuedOperation {
@@ -143,6 +146,36 @@ const isFirebaseConfigured = () => {
   return true;
 };
 
+// ✅ NEW: Enhanced connection management
+const handleConnectionError = (error: any) => {
+  console.error('🔥 Firestore connection error:', error);
+  
+  // Check for specific error types that indicate connection issues
+  if (error.code === 'unavailable' || 
+      error.code === 'deadline-exceeded' || 
+      error.code === 'failed-precondition' ||
+      error.message?.includes('400') ||
+      error.message?.includes('Bad Request')) {
+    
+    console.warn('⚠️ Switching to offline mode due to connection issues');
+    isOfflineMode = true;
+    connectionState = 'disconnected';
+    
+    // Try to reconnect after a delay
+    setTimeout(async () => {
+      try {
+        if (isFirebaseConfigured()) {
+          await enableNetwork(db);
+          isOfflineMode = false;
+          connectionState = 'connected';
+          console.log('✅ Reconnected to Firestore');
+        }
+      } catch (reconnectError) {
+        console.error('❌ Failed to reconnect:', reconnectError);
+      }
+    }, 5000);
+  }
+};
 // ✅ OPTIMIZED: Enhanced retry wrapper with circuit breaker
 const withRetry = async <T>(
   operation: () => Promise<T>, 
@@ -164,7 +197,11 @@ const withRetry = async <T>(
       // Don't retry on certain errors
       if (error.code === 'permission-denied' || 
           error.code === 'unauthenticated' ||
-          error.code === 'invalid-argument') {
+          error.code === 'invalid-argument' ||
+          error.message?.includes('400')) {
+        
+        // Handle connection errors
+        handleConnectionError(error);
         throw error;
       }
       
@@ -494,6 +531,12 @@ export const subscribeToListings = (
     return () => {};
   }
 
+  // If in offline mode, use cached data
+  if (isOfflineMode) {
+    console.warn('⚠️ In offline mode, using cached data');
+    callback(getCachedListings());
+    return () => {};
+  }
   try {
     let q;
     
@@ -518,10 +561,17 @@ export const subscribeToListings = (
     
     // ✅ OPTIMIZED: Debounce updates to prevent excessive re-renders
     let debounceTimeout: NodeJS.Timeout | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
     
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
         connectionState = 'connected';
+        isOfflineMode = false;
+        
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
+        }
         
         const listings = querySnapshot.docs.map(doc => ({
           id: doc.id,
@@ -543,26 +593,57 @@ export const subscribeToListings = (
       },
       (error) => {
         console.error('❌ Error in listings subscription:', error);
-        connectionState = 'disconnected';
         
-        // Handle specific errors
+        // Handle connection errors
+        handleConnectionError(error);
+        
+        // Use cached data immediately
+        callback(getCachedListings());
+        
+        // Handle specific error types
         if (error.code === 'permission-denied') {
           console.error('Permission denied for real-time updates. Check security rules.');
-          callback(getCachedListings());
-        } else if (error.code === 'unavailable' || error.code === 'deadline-exceeded' || error.code === 'failed-precondition') {
-          console.error('Firestore temporarily unavailable. Using cached data.');
-          callback(getCachedListings());
+        } else if (error.code === 'unavailable' || 
+                   error.code === 'deadline-exceeded' || 
+                   error.code === 'failed-precondition' ||
+                   error.message?.includes('400') ||
+                   error.message?.includes('Bad Request')) {
+          console.error('Firestore connection issues. Attempting to reconnect...');
+          
+          // Attempt reconnection with exponential backoff
+          if (!reconnectTimeout) {
+            reconnectTimeout = setTimeout(async () => {
+              try {
+                console.log('🔄 Attempting to reconnect to Firestore...');
+                await disableNetwork(db);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                await enableNetwork(db);
+                console.log('✅ Firestore reconnection successful');
+                
+                // Retry subscription
+                setTimeout(() => {
+                  if (!isOfflineMode) {
+                    subscribeToListings(callback, category);
+                  }
+                }, 1000);
+              } catch (reconnectError) {
+                console.error('❌ Reconnection failed:', reconnectError);
+                handleConnectionError(reconnectError);
+              }
+            }, 5000);
+          }
         } else if (error.code === 'unauthenticated') {
           console.error('Authentication required for real-time updates.');
-          callback(getCachedListings());
         } else {
           console.error('Unknown error in real-time subscription:', error);
-          callback(getCachedListings());
         }
       }
     );
     
     return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
       if (debounceTimeout) {
         clearTimeout(debounceTimeout);
       }
@@ -927,4 +1008,3 @@ export const getNearbyListings = async (
 };
 
 // Get current connection state
-export const getConnectionState = () => connectionState;
