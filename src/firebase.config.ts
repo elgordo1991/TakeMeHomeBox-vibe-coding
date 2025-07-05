@@ -64,18 +64,6 @@ try {
     // ✅ FIXED: Use standard Firestore initialization with better error handling
     db = getFirestore(app);
     storage = getStorage(app);
-    
-    // ✅ FIXED: Add connection state monitoring
-    if (db) {
-      // Monitor connection state
-      const unsubscribe = () => {
-        console.log('🔄 Firestore connection state changed');
-      };
-      
-      // Set up error handling for the database
-      db._delegate._databaseId = db._delegate._databaseId || {};
-    }
-    
     console.log('✅ Firebase initialized successfully');
   } else {
     console.warn('⚠️ Firebase not initialized due to missing configuration');
