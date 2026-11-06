@@ -7,62 +7,61 @@ interface BottomNavigationProps {
   setActiveTab: (tab: string) => void;
 }
 
-const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, setActiveTab }) => {
+const tabs = [
+  { id: 'map', label: 'Explore', icon: Map, path: '/map' },
+  { id: 'add', label: 'Add box', icon: Plus, path: '/add' },
+  { id: 'profile', label: 'Profile', icon: User, path: '/profile' },
+];
+
+const BottomNavigation: React.FC<BottomNavigationProps> = ({ setActiveTab }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const tabs = [
-    { id: 'map', label: 'Map', icon: Map, path: '/map' },
-    { id: 'add', label: 'Add', icon: Plus, path: '/add' },
-    { id: 'profile', label: 'Profile', icon: User, path: '/profile' },
-  ];
+  const currentTab = tabs.find((tab) => tab.path === location.pathname)?.id || 'profile';
 
   const handleTabClick = (tab: typeof tabs[0]) => {
     setActiveTab(tab.id);
     navigate(tab.path);
   };
 
-  const getCurrentTab = () => {
-    const currentPath = location.pathname;
-    return tabs.find(tab => tab.path === currentPath)?.id || 'profile';
-  };
-
-  const currentTab = getCurrentTab();
-
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-dark-blue border-t border-silver/30 safe-area-pb">
-      <div className="flex justify-around items-center py-2">
+    <nav className="fixed inset-x-0 bottom-0 z-40 safe-area-pb pointer-events-none">
+      <div className="mx-auto mb-3 flex max-w-sm items-center justify-between rounded-full border border-line bg-surface/90 px-3 py-2 shadow-lift backdrop-blur-md pointer-events-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.id;
-          
+
+          if (tab.id === 'add') {
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabClick(tab)}
+                aria-label={tab.label}
+                className={`-my-5 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-accent transition-transform duration-150 hover:bg-accent-dark active:scale-95 ${
+                  isActive ? 'ring-4 ring-accent-soft' : ''
+                }`}
+              >
+                <Plus className="h-7 w-7" strokeWidth={2.75} />
+              </button>
+            );
+          }
+
           return (
             <button
               key={tab.id}
               onClick={() => handleTabClick(tab)}
-              className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 active:animate-press-down ${
-                isActive
-                  ? 'text-silver-light bg-dark-blue-light border border-silver/50 shadow-silver-glow'
-                  : 'text-silver/60 hover:text-silver'
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold transition-all duration-200 active:scale-95 ${
+                isActive ? 'bg-accent-soft text-accent-dark' : 'text-subtle hover:text-ink'
               }`}
             >
-              <div className={`p-2 rounded-full transition-all duration-200 ${
-                isActive ? 'bg-dark-blue border border-silver/30' : ''
-              }`}>
-                <Icon className={`w-6 h-6 ${
-                  tab.id === 'add' && isActive ? 'scale-110' : ''
-                }`} />
-              </div>
-              <span className={`text-xs mt-1 font-medium ${
-                isActive ? 'text-silver-light' : ''
-              }`}>
-                {tab.label}
-              </span>
+              <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
+              <span className={isActive ? '' : 'sr-only sm:not-sr-only'}>{tab.label}</span>
             </button>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 };
 

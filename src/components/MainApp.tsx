@@ -18,8 +18,8 @@ const MainApp: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-deep-blue">
-      <div className="pb-20">
+    <div className="min-h-screen bg-canvas">
+      <div className="pb-28">
         <Routes>
           <Route path="/" element={<Navigate to="/profile" replace />} />
           <Route path="/map" element={<MapView />} />

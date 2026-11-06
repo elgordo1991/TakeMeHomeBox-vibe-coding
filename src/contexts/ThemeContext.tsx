@@ -20,7 +20,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <ThemeContext.Provider value={{ isDark }}>
-      <div className="min-h-screen bg-deep-blue">
+      <div className="min-h-screen bg-canvas">
         {children}
       </div>
     </ThemeContext.Provider>
