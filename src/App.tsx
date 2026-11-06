@@ -25,7 +25,7 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <Router>
-          <div className="min-h-screen bg-deep-blue">
+          <div className="min-h-screen bg-canvas">
             {showOnboarding ? (
               <Onboarding onComplete={handleOnboardingComplete} />
             ) : (

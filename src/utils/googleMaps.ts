@@ -50,40 +50,18 @@ if (!apiKey) {
   });
 };
 
-export const getDarkMapStyles = () => [
-  { elementType: 'geometry', stylers: [{ color: '#0A0F2C' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0A0F2C' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#C0C0C0' }] },
-  {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#E5E5E5' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#E5E5E5' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry',
-    stylers: [{ color: '#1E293B' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry',
-    stylers: [{ color: '#334155' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#1E293B' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'geometry',
-    stylers: [{ color: '#1E293B' }],
-  },
+export const getWarmMapStyles = () => [
+  { elementType: 'geometry', stylers: [{ color: '#F5EFE6' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#6B5D53' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#FAF6F0' }] },
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#DDEDDF' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#FBE3D3' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#F3CDB4' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#CFE3EC' }] },
 ];
 
 export const getCurrentLocation = (): Promise<{ lat: number; lng: number }> => {

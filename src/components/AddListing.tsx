@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, MapPin, Calendar, Tag, Upload, X, Locate, AlertCircle, CheckCircle } from 'lucide-react';
-import { loadGoogleMapsScript, getDarkMapStyles, getCurrentLocation } from '../utils/googleMaps';
+import { loadGoogleMapsScript, getWarmMapStyles, getCurrentLocation } from '../utils/googleMaps';
 import { createListing, BoxListingInput } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import MultiImageUpload from './MultiImageUpload';
@@ -66,7 +66,7 @@ const AddListing: React.FC = () => {
         googleMapRef.current = new window.google.maps.Map(mapRef.current, {
           zoom: 15,
           center: formData.coordinates || defaultCenter,
-          styles: getDarkMapStyles(),
+          styles: getWarmMapStyles(),
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
@@ -363,25 +363,25 @@ const AddListing: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-deep-blue flex items-center justify-center p-6">
+      <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
         <div className="text-center">
           <div className="text-6xl mb-4">📦</div>
-          <h2 className="text-xl font-bold text-silver-light mb-2">Sign In Required</h2>
-          <p className="text-silver">Please sign in to create a listing</p>
+          <h2 className="text-xl font-bold text-ink mb-2">Sign In Required</h2>
+          <p className="text-muted">Please sign in to create a listing</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-deep-blue">
+    <div className="min-h-screen bg-canvas">
       {/* Header */}
-      <div className="card-dark border-b border-silver/30">
-        <div className="p-4">
-          <h1 className="text-xl font-bold text-silver-light">
-            {formData.isSpotted ? 'Report a Spotted Box' : 'List a TakeMeHomeBox'}
+      <div className="sticky top-0 z-30 border-b border-line bg-canvas/90 backdrop-blur-md">
+        <div className="px-4 pb-4 pt-5">
+          <h1 className="text-2xl">
+            {formData.isSpotted ? 'Report a spotted box' : 'Share a box'}
           </h1>
-          <p className="text-sm text-silver/60 mt-1">
+          <p className="text-sm text-subtle mt-1">
             Only location is required - all other fields are optional
           </p>
         </div>
@@ -390,11 +390,11 @@ const AddListing: React.FC = () => {
       {/* Success Message */}
       {submitSuccess && (
         <div className="p-4">
-          <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4 flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center space-x-3">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
             <div>
-              <p className="text-green-400 font-medium">Listing Created Successfully!</p>
-              <p className="text-green-400/80 text-sm">Your box is now visible to the community.</p>
+              <p className="text-green-600 font-medium">Listing Created Successfully!</p>
+              <p className="text-green-600/80 text-sm">Your box is now visible to the community.</p>
             </div>
           </div>
         </div>
@@ -403,11 +403,11 @@ const AddListing: React.FC = () => {
       {/* Error Message */}
       {submitError && (
         <div className="p-4">
-          <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 flex items-center space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
             <div>
-              <p className="text-red-400 text-sm font-medium">Error Creating Listing</p>
-              <p className="text-red-400/80 text-sm">{submitError}</p>
+              <p className="text-red-600 text-sm font-medium">Error Creating Listing</p>
+              <p className="text-red-600/80 text-sm">{submitError}</p>
             </div>
           </div>
         </div>
@@ -415,42 +415,34 @@ const AddListing: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="p-4 space-y-6">
         {/* Listing Type Toggle */}
-        <div className="card-dark p-4">
-          <h3 className="font-semibold text-silver-light mb-3">Listing Type</h3>
-          <div className="flex space-x-4">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="isSpotted"
-                checked={!formData.isSpotted}
-                onChange={() => setFormData({ ...formData, isSpotted: false })}
-                className="mr-2 text-silver accent-silver"
-                disabled={submitting}
-              />
-              <span className="text-silver">My Box</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="isSpotted"
-                checked={formData.isSpotted}
-                onChange={() => setFormData({ ...formData, isSpotted: true })}
-                className="mr-2 text-silver accent-silver"
-                disabled={submitting}
-              />
-              <span className="text-silver">Spotted Box</span>
-            </label>
-          </div>
+        <div className="grid grid-cols-2 gap-1 rounded-full border border-line bg-sand p-1">
+          {[
+            { spotted: false, label: '📦 My box' },
+            { spotted: true, label: '👀 Spotted a box' },
+          ].map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              disabled={submitting}
+              aria-pressed={formData.isSpotted === opt.spotted}
+              onClick={() => setFormData({ ...formData, isSpotted: opt.spotted })}
+              className={`rounded-full py-2.5 text-sm font-bold transition-all ${
+                formData.isSpotted === opt.spotted ? 'bg-surface text-ink shadow-soft' : 'text-subtle hover:text-ink'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
         {/* Location - REQUIRED */}
-        <div className="card-dark p-4 border-2 border-silver/50">
-          <label className="block text-sm font-medium text-silver-light mb-2">
-            Location * <span className="text-xs text-silver/60">(Required)</span>
+        <div className="card-dark p-4 ring-2 ring-accent/20">
+          <label className="mb-2 block text-sm font-bold text-ink">
+            Location * <span className="text-xs text-subtle">(Required)</span>
           </label>
           <div className="space-y-3">
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-subtle" />
               <input
                 type="text"
                 name="location"
@@ -458,7 +450,7 @@ const AddListing: React.FC = () => {
                 onChange={handleInputChange}
                 placeholder="Tap to set location on map"
                 onClick={handleLocationClick}
-                className="input-dark w-full pl-10 pr-4 py-3 rounded-lg cursor-pointer border-2 border-silver/30 focus:border-silver"
+                className="input-dark w-full pl-12 pr-4 py-3 cursor-pointer"
                 disabled={submitting}
                 readOnly
                 required
@@ -480,22 +472,22 @@ const AddListing: React.FC = () => {
                 className="btn-secondary flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loadingLocation ? (
-                  <div className="w-4 h-4 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-line border-t-accent rounded-full animate-spin"></div>
                 ) : (
                   <Locate className="w-4 h-4" />
                 )}
               </button>
             </div>
           </div>
-          <p className="text-sm text-silver/60 mt-2">
+          <p className="text-sm text-subtle mt-2">
             Precise location helps others find your box easily
           </p>
         </div>
 
         {/* Images - OPTIONAL */}
         <div className="card-dark p-4">
-          <h3 className="font-semibold text-silver-light mb-3">
-            Photos <span className="text-xs text-silver/60">(Optional)</span>
+          <h3 className="mb-3 text-base font-extrabold">
+            Photos <span className="text-xs text-subtle">(Optional)</span>
           </h3>
           <MultiImageUpload
             images={formData.images}
@@ -503,15 +495,15 @@ const AddListing: React.FC = () => {
             maxImages={5}
             folder="listings"
           />
-          <p className="text-xs text-silver/60 mt-2">
+          <p className="text-xs text-subtle mt-2">
             Add photos to help others identify your box (optional but recommended)
           </p>
         </div>
 
         {/* Title - OPTIONAL */}
         <div className="card-dark p-4">
-          <label className="block text-sm font-medium text-silver mb-2">
-            Title <span className="text-xs text-silver/60">(Optional)</span>
+          <label className="mb-2 block text-sm font-bold text-ink">
+            Title <span className="text-xs text-subtle">(Optional)</span>
           </label>
           <input
             type="text"
@@ -519,18 +511,18 @@ const AddListing: React.FC = () => {
             value={formData.title}
             onChange={handleInputChange}
             placeholder="e.g., Kitchen essentials, Children's books (optional)"
-            className="input-dark w-full px-4 py-3 rounded-lg"
+            className="input-dark w-full px-4 py-3"
             disabled={submitting}
           />
-          <p className="text-xs text-silver/60 mt-1">
+          <p className="text-xs text-subtle mt-1">
             Leave blank for default title "Untitled Box"
           </p>
         </div>
 
         {/* Description - OPTIONAL */}
         <div className="card-dark p-4">
-          <label className="block text-sm font-medium text-silver mb-2">
-            Description <span className="text-xs text-silver/60">(Optional)</span>
+          <label className="mb-2 block text-sm font-bold text-ink">
+            Description <span className="text-xs text-subtle">(Optional)</span>
           </label>
           <textarea
             name="description"
@@ -538,26 +530,26 @@ const AddListing: React.FC = () => {
             onChange={handleInputChange}
             rows={4}
             placeholder="Describe what's in the box (optional)..."
-            className="input-dark w-full px-4 py-3 rounded-lg resize-none"
+            className="input-dark w-full px-4 py-3 resize-none"
             disabled={submitting}
           />
-          <p className="text-xs text-silver/60 mt-1">
+          <p className="text-xs text-subtle mt-1">
             Leave blank for default description "No description provided"
           </p>
         </div>
 
         {/* Category - OPTIONAL */}
         <div className="card-dark p-4">
-          <label className="block text-sm font-medium text-silver mb-2">
-            Category <span className="text-xs text-silver/60">(Optional)</span>
+          <label className="mb-2 block text-sm font-bold text-ink">
+            Category <span className="text-xs text-subtle">(Optional)</span>
           </label>
           <div className="relative">
-            <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
+            <Tag className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-subtle" />
             <select
               name="category"
               value={formData.category}
               onChange={handleInputChange}
-              className="input-dark w-full pl-10 pr-4 py-3 rounded-lg"
+              className="input-dark w-full pl-12 pr-4 py-3"
               disabled={submitting}
             >
               <option value="">Select a category (optional)</option>
@@ -568,21 +560,21 @@ const AddListing: React.FC = () => {
               ))}
             </select>
           </div>
-          <p className="text-xs text-silver/60 mt-1">
+          <p className="text-xs text-subtle mt-1">
             Leave blank for default category "Other"
           </p>
         </div>
 
         {/* Auto-expire info */}
         {!formData.isSpotted && (
-          <div className="bg-dark-blue-light rounded-xl p-4 border border-silver/30">
+          <div className="bg-sand rounded-2xl p-4 border border-line">
             <div className="flex items-start space-x-3">
-              <Calendar className="w-5 h-5 text-silver mt-0.5" />
+              <Calendar className="w-5 h-5 text-muted mt-0.5" />
               <div>
-                <h4 className="font-medium text-silver-light">
+                <h4 className="font-medium text-ink">
                   Auto-expiry in 48 hours
                 </h4>
-                <p className="text-sm text-silver">
+                <p className="text-sm text-muted">
                   Your listing will automatically expire in 48 hours. You can mark it as taken earlier if needed.
                 </p>
               </div>
@@ -594,11 +586,11 @@ const AddListing: React.FC = () => {
         <button
           type="submit"
           disabled={submitting || !formData.coordinates}
-          className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          className="btn-primary w-full"
         >
           {submitting ? (
             <>
-              <div className="w-5 h-5 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+              <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
               <span>Creating Listing...</span>
             </>
           ) : (
@@ -608,7 +600,7 @@ const AddListing: React.FC = () => {
 
         {/* Help text */}
         <div className="text-center">
-          <p className="text-xs text-silver/60">
+          <p className="text-xs text-subtle">
             Only location is required. All other fields will use sensible defaults if left empty.
           </p>
         </div>
@@ -616,33 +608,33 @@ const AddListing: React.FC = () => {
 
       {/* Map Modal */}
       {showMap && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="card-dark rounded-2xl w-full max-w-md h-96 overflow-hidden">
-            <div className="p-4 border-b border-silver/30 flex items-center justify-between">
-              <h3 className="font-semibold text-silver-light">
+        <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card-dark w-full max-w-md h-96 overflow-hidden">
+            <div className="p-4 border-b border-line flex items-center justify-between">
+              <h3 className="text-lg font-extrabold">
                 Set Box Location *
               </h3>
               <button
                 onClick={handleMapClose}
                 disabled={submitting}
-                className="text-silver/60 hover:text-silver disabled:opacity-50"
+                className="text-subtle hover:text-muted disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="h-64">
               {mapsError ? (
-                <div className="w-full h-full bg-dark-blue flex items-center justify-center">
+                <div className="w-full h-full bg-surface flex items-center justify-center">
                   <div className="text-center p-4">
-                    <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                    <p className="text-silver text-sm">{mapsError}</p>
+                    <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                    <p className="text-muted text-sm">{mapsError}</p>
                   </div>
                 </div>
               ) : !mapsLoaded ? (
-                <div className="w-full h-full bg-dark-blue flex items-center justify-center">
+                <div className="w-full h-full bg-surface flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-6 h-6 border-2 border-silver/30 border-t-silver rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-silver text-sm">Loading Google Maps...</p>
+                    <div className="w-6 h-6 border-2 border-line border-t-accent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-muted text-sm">Loading Google Maps...</p>
                   </div>
                 </div>
               ) : (
@@ -653,7 +645,7 @@ const AddListing: React.FC = () => {
               <button
                 onClick={handleMapClose}
                 disabled={!formData.coordinates || submitting}
-                className="btn-primary w-full disabled:opacity-50"
+                className="btn-primary w-full"
               >
                 {formData.coordinates ? 'Confirm Location' : 'Select Location First'}
               </button>

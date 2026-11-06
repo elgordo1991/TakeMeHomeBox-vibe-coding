@@ -86,7 +86,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
   return (
     <div className={`relative ${className}`}>
-      <div className={`${sizeClasses[size]} ${shapeClasses[shape]} border-2 border-dashed border-silver/30 overflow-hidden relative group hover:border-silver transition-colors`}>
+      <div className={`${sizeClasses[size]} ${shapeClasses[shape]} border-2 border-dashed border-line overflow-hidden relative group hover:border-line-strong transition-colors`}>
         {displayImage ? (
           <>
             <img
@@ -95,8 +95,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               className="w-full h-full object-cover"
             />
             {uploading && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <Loader className="w-6 h-6 text-silver animate-spin" />
+              <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center">
+                <Loader className="w-6 h-6 text-muted animate-spin" />
               </div>
             )}
             {!uploading && onImageRemoved && (
@@ -109,13 +109,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             )}
           </>
         ) : (
-          <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-dark-blue-light transition-colors">
+          <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-sand transition-colors">
             {uploading ? (
-              <Loader className="w-6 h-6 text-silver animate-spin mb-1" />
+              <Loader className="w-6 h-6 text-muted animate-spin mb-1" />
             ) : (
-              <Camera className="w-6 h-6 text-silver/60 mb-1" />
+              <Camera className="w-6 h-6 text-subtle mb-1" />
             )}
-            <span className="text-xs text-silver/60 text-center px-1">
+            <span className="text-xs text-subtle text-center px-1">
               {uploading ? 'Uploading...' : placeholder}
             </span>
             <input
@@ -131,7 +131,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       </div>
 
       {error && (
-        <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-red-500/20 border border-red-500/30 rounded text-xs text-red-400 flex items-center space-x-1">
+        <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600 flex items-center space-x-1">
           <AlertCircle className="w-3 h-3 flex-shrink-0" />
           <span>{error}</span>
         </div>
