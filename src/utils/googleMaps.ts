@@ -1,4 +1,3 @@
-    console.log('[ENV CHECK] VITE_GOOGLE_MAPS_API_KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
 
 // Google Maps utility functions
 export const loadGoogleMapsScript = (): Promise<void> => {
