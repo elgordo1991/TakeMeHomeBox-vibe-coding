@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Bell, BellOff, Trash2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { User, Star, Gift, Package, Settings, LogOut, Edit, Camera, Trash2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, updateListingStatus, deleteListing, BoxListing } from '../services/firestore';
 import ImageUpload from './ImageUpload';
 import { timeAgo } from '../utils/dates';
 import { ratingSummary } from '../utils/rating';
+import NotificationSettings from './NotificationSettings';
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({ username: '', bio: '' });
-  const [notifications, setNotifications] = useState(true);
   const [userListings, setUserListings] = useState<BoxListing[]>([]);
   const [loadingListings, setLoadingListings] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'expired'>('active');
@@ -530,32 +530,8 @@ const Profile: React.FC = () => {
           </div>
           
           <div className="divide-y divide-line">
-            {/* Notifications Toggle */}
-            <div className="p-4 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                {notifications ? (
-                  <Bell className="w-5 h-5 text-muted" />
-                ) : (
-                  <BellOff className="w-5 h-5 text-subtle" />
-                )}
-                <div>
-                  <p className="text-muted font-medium">Notifications</p>
-                  <p className="text-sm text-subtle">Get notified about nearby boxes</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setNotifications(!notifications)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors active:animate-press-down ${
-                  notifications ? 'bg-accent' : 'bg-line-strong'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    notifications ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
+            {/* New box alerts */}
+            <NotificationSettings uid={user.uid} />
 
             {/* ✅ NEW: Account Details Dropdown */}
             <div className="p-4">
