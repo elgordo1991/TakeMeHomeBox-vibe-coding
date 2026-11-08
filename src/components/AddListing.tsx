@@ -3,6 +3,7 @@ import { Camera, MapPin, Calendar, Tag, Upload, X, Locate, AlertCircle, CheckCir
 import { loadGoogleMapsScript, getWarmMapStyles, getCurrentLocation } from '../utils/googleMaps';
 import { createListing, BoxListingInput } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import MultiImageUpload from './MultiImageUpload';
 
 declare global {
@@ -32,6 +33,8 @@ const AddListing: React.FC = () => {
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [listedAsSpotted, setListedAsSpotted] = useState(false);
+  const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const categories = [
@@ -317,13 +320,9 @@ const AddListing: React.FC = () => {
       console.log('🎉 [DEBUG] ===== LISTING CREATION SUCCESS =====');
       console.log('✅ [DEBUG] Listing created with ID:', listingId);
       
+      setListedAsSpotted(formData.isSpotted);
+      resetForm();
       setSubmitSuccess(true);
-      
-      // Reset form after successful submission with improved timing
-      setTimeout(() => {
-        console.log('🟡 [DEBUG] Resetting form after successful submission');
-        resetForm();
-      }, 2000);
       
     } catch (error: any) {
       console.error('🔥 [DEBUG] ===== LISTING CREATION FAILED =====');
@@ -358,6 +357,7 @@ const AddListing: React.FC = () => {
       }
       
       setSubmitting(false); // ensure spinner goes away
+      window.scrollTo({ top: 0, behavior: 'smooth' }); // error banner is at the top
     }
   };
 
@@ -387,15 +387,41 @@ const AddListing: React.FC = () => {
         </div>
       </div>
 
-      {/* Success Message */}
+      {/* Success confirmation */}
       {submitSuccess && (
-        <div className="p-4">
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-            <div>
-              <p className="text-green-600 font-medium">Listing Created Successfully!</p>
-              <p className="text-green-600/80 text-sm">Your box is now visible to the community.</p>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm animate-fade-in sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="listed-title"
+        >
+          <div className="card-dark w-full max-w-sm p-8 text-center animate-slide-up">
+            <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-leaf-soft">
+              <span className="text-5xl logo-animated">{listedAsSpotted ? '👀' : '📦'}</span>
             </div>
+            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-leaf-soft px-3 py-1 text-sm font-bold text-leaf">
+              <CheckCircle className="h-4 w-4" />
+              {listedAsSpotted ? 'Box reported' : 'Box listed'}
+            </div>
+            <h2 id="listed-title" className="mb-2 text-2xl">
+              {listedAsSpotted ? 'Thanks for the tip!' : "Your box is live!"}
+            </h2>
+            <p className="mb-6 text-muted">
+              It's on the map now for neighbours to find. It'll disappear automatically in 48 hours.
+            </p>
+            <button onClick={() => navigate('/map')} className="btn-primary mb-3 w-full">
+              <MapPin className="h-5 w-5" />
+              See it on the map
+            </button>
+            <button
+              onClick={() => {
+                setSubmitSuccess(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="btn-secondary w-full"
+            >
+              List another box
+            </button>
           </div>
         </div>
       )}
