@@ -466,20 +466,17 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
     return [];
   }
 
-  // Check cache first
+  // Always fetch fresh: this list changes right after the user deletes or
+  // updates a box. The cache below is only used as a fallback on errors.
   const cacheKey = `user_listings_${userId}`;
-  try {
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) {
-      const { data, timestamp } = JSON.parse(cached);
-      if (Date.now() - timestamp < 2 * 60 * 1000) { // 2 minutes
-        console.log('📦 Using cached user listings');
-        return data;
-      }
+  const readUserCache = (): BoxListing[] | null => {
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      return cached ? JSON.parse(cached).data : null;
+    } catch {
+      return null;
     }
-  } catch (error) {
-    console.warn('Failed to load cached user listings');
-  }
+  };
 
   if (!isFirebaseConfigured()) {
     console.warn('⚠️ Firebase not configured, checking cached listings for userId:', userId);
@@ -516,7 +513,7 @@ export const getUserListings = async (userId: string): Promise<BoxListing[]> => 
     return listings;
   }, 'getUserListings').catch(error => {
     console.error('❌ Error fetching user listings:', error);
-    return getCachedListings().filter(listing => listing.userId === userId);
+    return readUserCache() ?? getCachedListings().filter(listing => listing.userId === userId);
   });
 };
 

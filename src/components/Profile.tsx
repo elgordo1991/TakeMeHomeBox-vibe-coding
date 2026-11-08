@@ -94,7 +94,6 @@ const Profile: React.FC = () => {
     try {
       await updateListingStatus(listingId, 'taken');
       await loadUserListings(); // Refresh listings
-      alert('Listing marked as taken!');
     } catch (error) {
       console.error('Error marking as taken:', error);
       alert('Failed to mark as taken. Please try again.');
@@ -102,13 +101,18 @@ const Profile: React.FC = () => {
   };
 
   const handleDeleteListing = async (listingId: string) => {
-    if (confirm('Are you sure you want to delete this listing? This action cannot be undone.')) {
-      try {
-        await deleteListing(listingId);
-        await loadUserListings(); // Refresh listings
-        alert('Listing deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting listing:', error);
+    if (!confirm('Are you sure you want to delete this listing? This action cannot be undone.')) return;
+
+    // Remove it from the list straight away
+    setUserListings((prev) => prev.filter((l) => l.id !== listingId));
+    try {
+      await deleteListing(listingId);
+    } catch (error) {
+      console.error('Error deleting listing:', error);
+      // Re-check: if it's already gone, the delete did what was wanted.
+      const fresh = await getUserListings(user!.uid);
+      setUserListings(fresh);
+      if (fresh.some((l) => l.id === listingId)) {
         alert('Failed to delete listing. Please try again.');
       }
     }
