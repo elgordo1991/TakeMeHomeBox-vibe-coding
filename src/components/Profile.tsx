@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, updateListingStatus, deleteListing, BoxListing } from '../services/firestore';
 import ImageUpload from './ImageUpload';
+import { timeAgo } from '../utils/dates';
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -174,24 +175,7 @@ const Profile: React.FC = () => {
     return '🗑️'; // Trash quality
   };
 
-  const getTimePosted = (createdAt: any) => {
-    if (!createdAt) return 'Unknown';
-    
-    const now = new Date();
-    const created = createdAt.toDate();
-    const diffMs = now.getTime() - created.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
-    
-    if (diffDays > 0) {
-      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    } else if (diffHours > 0) {
-      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    } else {
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      return `${Math.max(1, diffMinutes)} minute${diffMinutes > 1 ? 's' : ''} ago`;
-    }
-  };
+  const getTimePosted = (createdAt: unknown) => timeAgo(createdAt);
 
   // ✅ NEW: Format date helper function
   const formatDate = (dateString: string) => {

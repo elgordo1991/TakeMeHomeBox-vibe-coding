@@ -10,6 +10,7 @@ import {
   BoxListing 
 } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { timeAgo } from '../utils/dates';
 
 declare global {
   interface Window {
@@ -269,24 +270,7 @@ const MapView: React.FC = () => {
     return '🗑️';
   };
 
-  const getTimeAgo = (createdAt: any) => {
-    if (!createdAt) return 'Unknown';
-    
-    const now = new Date();
-    const created = createdAt.toDate();
-    const diffMs = now.getTime() - created.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
-    
-    if (diffDays > 0) {
-      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    } else if (diffHours > 0) {
-      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    } else {
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      return `${Math.max(1, diffMinutes)} minute${diffMinutes > 1 ? 's' : ''} ago`;
-    }
-  };
+  const getTimeAgo = (createdAt: unknown) => timeAgo(createdAt);
 
   return (
     <div className="min-h-screen bg-canvas">
