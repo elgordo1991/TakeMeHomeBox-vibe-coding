@@ -1,236 +1,125 @@
-# TakeMeHomeBox
+# TakeMeHomeBox 📦
 
-A community sharing app that connects people giving away free items with those who want them.
+A community app for the boxes of free stuff people leave outside their homes. List a box you've put out, report one you've spotted, and find treasures near you on a map.
 
-## 🚀 Features
+**Live:** https://takemehomeboxvibe-coding.web.app (custom domain `tmhb.xyz` in progress)
 
-- **Firebase Authentication**: Secure email/password and Google Sign-In
-- **Firestore Database**: Real-time listings and user data
-- **Interactive Maps**: Google Maps integration showing nearby boxes
-- **Community Rating System**: Emoji-based ratings (🗑️ → 💎)
-- **User Profiles**: Customizable profiles with activity tracking
-- **Responsive Design**: Mobile-first design optimized for all devices
-- **Real-time Updates**: Live location and listing updates
-- **Progressive Web App**: Installable on mobile devices
+## Features
 
-## 🛠️ Setup Instructions
+- **Map of nearby boxes** with live updates, search and category filters
+- **List a box or report a spotted one.** Only a location is required; listings expire after 48 hours
+- **Box quality ratings:** 🗑️ Junk · 💩 Poor · 📦 Okay · ✨ Great · 💎 Treasure (you can't rate your own box)
+- **Mark as found** to take a box off the map
+- **Profiles with ranks** earned through activity: 🆕 Noob → 🧹 Forager (5) → 🎒 Scavenger (15) → 🪙 Giver (25) → 💎 Treasure Hunter (50)
+- **Installable app** (Add to Home Screen) with an offline screen
+- **"New box near you" push notifications** within 1, 3 or 5 km (iPhone needs the app on the Home Screen, iOS 16.4+)
 
-### Prerequisites
+## Tech stack
 
-- Node.js 16+ and npm
-- Firebase project
-- Google Cloud Console project
+- React 18, TypeScript, Tailwind CSS, Vite
+- Firebase Authentication (email and password)
+- Cloud Firestore, using a **named database** `takemehomeboxvibe-coding` (not `(default)`)
+- Firebase Cloud Messaging and Cloud Functions (2nd gen) for notifications
+- Firebase Hosting, deployed by GitHub Actions
+- Google Maps JavaScript API and Geocoding API
 
-### Firebase Setup
+## Project layout
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project or select existing
-3. Enable Authentication:
-   - Go to Authentication → Sign-in method
-   - Enable Email/Password provider
-   - Enable Google provider (optional)
-4. Create Firestore Database:
-   - Go to Firestore Database
-   - Create database in production mode
-   - Choose your preferred location
-5. Get your Firebase config:
-   - Go to Project Settings → General
-   - Scroll down to "Your apps"
-   - Click "Web app" icon to create/view web app
-   - Copy the config object
-
-### Environment Variables
-
-1. Copy `.env.example` to `.env`
-2. Add your Firebase config values:
-
-```env
-# Firebase Configuration (get these from Firebase Console)
-VITE_FIREBASE_API_KEY=your_firebase_api_key_here
-VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-
-# Google Maps API Configuration
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
-VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
+```
+src/                  React app
+  components/         Screens (MapView, AddListing, Profile, ...) and UI pieces
+  services/           firestore.ts (data), push.ts (notifications)
+  utils/              dates, ratings, Google Maps helpers
+public/               Icons, manifest, service worker (sw.js), offline page
+functions/            Cloud Function that sends "new box near you" alerts
+firestore.rules       Database security rules
+firestore.indexes.json  Composite indexes the queries need
 ```
 
-### Firestore Security Rules
+## Deployment
 
-Set up these security rules in Firebase Console → Firestore Database → Rules:
+Hosting deploys automatically through GitHub Actions:
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Listings collection
-    match /listings/{listingId} {
-      // Anyone can read active listings
-      allow read: if resource.data.status == 'active';
-      
-      // Only authenticated users can create listings
-      allow create: if request.auth != null 
-        && request.auth.uid == request.resource.data.userId;
-      
-      // Only the owner can update their listings
-      allow update: if request.auth != null 
-        && request.auth.uid == resource.data.userId;
-      
-      // Only the owner can delete their listings
-      allow delete: if request.auth != null 
-        && request.auth.uid == resource.data.userId;
-    }
-    
-    // Users can read/write their own user documents
-    match /users/{userId} {
-      allow read, write: if request.auth != null 
-        && request.auth.uid == userId;
-    }
-  }
-}
-```
+- **Pull requests** get a preview link (`...--prN-....web.app`), posted as a comment on the PR
+- **Merging to `main`** deploys to the live site
 
-### Google Maps Setup
+The build reads these **GitHub repository secrets** (Settings → Secrets and variables → Actions):
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable these APIs:
-   - Maps JavaScript API
-   - Places API
-   - Geocoding API
-4. Create API Key credentials
-5. Add your domain to authorized origins
+| Secret | Where to find it |
+|---|---|
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` | Firebase Console → Project settings → Your apps → web app config |
+| `VITE_GOOGLE_MAPS_API_KEY` | Google Cloud Console → APIs & Services → Credentials |
+| `VITE_FIREBASE_VAPID_KEY` | Firebase Console → Project settings → Cloud Messaging → Web Push certificates |
+| `FIREBASE_SERVICE_ACCOUNT_TAKEMEHOMEBOXVIBE_CODING` | Created by `firebase init hosting:github` |
 
-### Google Sign-In Setup (Optional)
-
-1. In Google Cloud Console → Credentials
-2. Create OAuth 2.0 Client ID
-3. Add authorized origins:
-   - `http://localhost:5173` (development)
-   - Your production domain
-4. Copy Client ID to `.env`
-
-### Development
+**Database rules, indexes and the notification function are not deployed by GitHub Actions.** After changing any of them, deploy from a computer with the Firebase CLI:
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
+npm install -g firebase-tools
+firebase login
+firebase deploy --only firestore          # rules + indexes
+cd functions && npm install && cd ..
+firebase deploy --only functions          # notification function (needs the Blaze plan)
 ```
 
-## 🔥 Firebase Features Used
+## Local development
 
-### Authentication
-- Email/password authentication
-- Google Sign-In (optional)
-- User profile management
+Requires Node.js 20 or later.
 
-### Firestore Database
-- Real-time listings synchronization
-- User data storage
-- Rating and review system
-- Automatic data validation
+```bash
+cp .env.example .env     # then fill in the values from the table above
+npm install
+npm run dev              # http://localhost:5173
+npm run build            # production build into dist/
+```
 
-### Collections Structure
+For local development, add `localhost:5173/*` to the Maps key's allowed websites and `localhost` to Firebase → Authentication → Settings → Authorized domains.
 
-#### Listings Collection (`/listings/{listingId}`)
-```javascript
+## Google Cloud setup
+
+- **APIs to enable:** Maps JavaScript API, Geocoding API
+- **Maps key website restrictions:** `takemehomeboxvibe-coding.web.app/*`, `*.web.app/*` (previews), `localhost:5173/*`, and the custom domain once live
+- **Billing** must be on (the Blaze plan) for Maps and Cloud Functions. Set a budget alert.
+
+## Data model
+
+**`listings/{listingId}`**
+
+```ts
 {
-  id: string,
-  title: string,
-  description: string,
-  category: string,
-  images: string[],
-  location: {
-    address: string,
-    coordinates: GeoPoint
-  },
-  isSpotted: boolean,
-  userId: string,
-  userEmail: string,
-  username: string,
-  rating: number,
-  ratings: [{ userId: string, rating: number, comment?: string }],
-  status: 'active' | 'taken' | 'expired',
-  createdAt: Timestamp,
-  updatedAt: Timestamp,
+  title: string
+  description: string
+  category: string
+  images: string[]
+  location: { address: string, coordinates: { latitude: number, longitude: number } }
+  isSpotted: boolean
+  userId: string
+  username: string
+  userEmail: string
+  rating: number                       // average, 0 when unrated
+  ratings: { userId: string, rating: 1 | 2 | 3 | 4 | 5 }[]
+  status: 'active' | 'taken' | 'expired'
+  takenBy?: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
   expiresAt?: Timestamp
 }
 ```
 
-## 📱 Production Deployment
+**`users/{uid}`**: profile, `itemsGiven` and `itemsTaken` counts (which drive ranks), and for notifications `notify: { enabled, radiusKm, location }` plus `pushTokens: string[]`.
 
-### Build Optimization
+### Security rules (summary)
 
-- Code splitting for vendor and Firebase bundles
-- Optimized asset loading
-- Environment variable validation
-- Error boundary implementation
+See `firestore.rules`. Signed-in users can create boxes in their own name. Owners can edit or delete their own boxes and see their expired or taken ones. Other signed-in users can **only** rate a box (1–5) or mark an active box as found. Users can only read and write their own profile.
 
-### Security Features
+### Indexes
 
-- Firebase security rules
-- Input validation and sanitization
-- XSS protection
-- Secure authentication flow
+`firestore.indexes.json` defines the three composite indexes on `listings`:
 
-### Performance
+- `status` ↑, `createdAt` ↓
+- `status` ↑, `category` ↑, `createdAt` ↓
+- `userId` ↑, `createdAt` ↓
 
-- Lazy loading of Google Maps
-- Image optimization
-- Bundle size optimization
-- Caching strategies
+## Contributing
 
-## 🎯 User Experience
-
-### Rating System
-- 🗑️ (1) - Trash quality
-- 💩 (2) - Poor quality  
-- 📦 (3) - Okay quality
-- ✨ (4) - Great quality
-- 💎 (5) - Perfect quality
-
-### User Ranks
-- 🆕 Noob (0-4 activities)
-- 🧹 Forager (5-14 activities)
-- 🎒 Scavenger (15-24 activities)
-- 🪙 Giver (25-49 activities)
-- 💎 Treasure Hunter (50+ activities)
-
-## 🔧 Technical Stack
-
-- **Frontend**: React 18, TypeScript, Tailwind CSS
-- **Authentication**: Firebase Auth
-- **Database**: Cloud Firestore
-- **Maps**: Google Maps JavaScript API
-- **Build Tool**: Vite
-- **Deployment**: Netlify
-- **State Management**: React Context
-- **Routing**: React Router
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## 📞 Support
-
-For support, email support@takemehomebox.com or create an issue on GitHub.
+Create a branch, open a pull request, and check the preview link before merging.
