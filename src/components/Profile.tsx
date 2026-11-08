@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, updateListingStatus, deleteListing, BoxListing } from '../services/firestore';
 import ImageUpload from './ImageUpload';
+import { timeAgo } from '../utils/dates';
+import { ratingSummary } from '../utils/rating';
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -165,33 +167,7 @@ const Profile: React.FC = () => {
     };
   };
 
-  // Get rating emoji based on average rating
-  const getRatingEmoji = (rating: number) => {
-    if (rating >= 4.5) return '💎'; // Perfect quality
-    if (rating >= 3.5) return '✨'; // Great quality
-    if (rating >= 2.5) return '📦'; // Okay quality
-    if (rating >= 1.5) return '💩'; // Poor quality
-    return '🗑️'; // Trash quality
-  };
-
-  const getTimePosted = (createdAt: any) => {
-    if (!createdAt) return 'Unknown';
-    
-    const now = new Date();
-    const created = createdAt.toDate();
-    const diffMs = now.getTime() - created.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
-    
-    if (diffDays > 0) {
-      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    } else if (diffHours > 0) {
-      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    } else {
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      return `${Math.max(1, diffMinutes)} minute${diffMinutes > 1 ? 's' : ''} ago`;
-    }
-  };
+  const getTimePosted = (createdAt: unknown) => timeAgo(createdAt);
 
   // ✅ NEW: Format date helper function
   const formatDate = (dateString: string) => {
@@ -209,11 +185,11 @@ const Profile: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-deep-blue flex items-center justify-center p-6">
+      <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
         <div className="text-center">
           <div className="text-6xl mb-4">📦</div>
-          <h2 className="text-xl font-bold text-silver-light mb-2">Not Signed In</h2>
-          <p className="text-silver">Please sign in to view your profile</p>
+          <h2 className="text-xl font-bold text-ink mb-2">Not Signed In</h2>
+          <p className="text-muted">Please sign in to view your profile</p>
         </div>
       </div>
     );
@@ -221,7 +197,6 @@ const Profile: React.FC = () => {
 
   const rank = calculateRank();
   const progress = calculateProgress();
-  const ratingEmoji = getRatingEmoji(user.rating);
   const totalActivity = (user.itemsGiven || 0) + (user.itemsTaken || 0);
 
   // ✅ UPDATED: Improved filtering logic as requested
@@ -232,15 +207,16 @@ const Profile: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-deep-blue">
+    <div className="min-h-screen bg-canvas">
       {/* Header */}
-      <div className="card-dark border-b border-silver/30">
-        <div className="p-4">
+      <div className="sticky top-0 z-30 border-b border-line bg-canvas/90 backdrop-blur-md">
+        <div className="px-4 pb-4 pt-5">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-silver-light">Profile</h1>
+            <h1 className="text-2xl">Profile</h1>
             <button
               onClick={() => setIsEditing(!isEditing)}
-              className="btn-secondary p-2"
+              aria-label="Edit profile"
+              className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-soft transition active:scale-95 ${isEditing ? 'border-accent bg-accent text-white' : 'border-line bg-surface text-ink'}`}
             >
               <Edit className="w-5 h-5" />
             </button>
@@ -271,23 +247,18 @@ const Profile: React.FC = () => {
                   name="username"
                   value={editData.username}
                   onChange={handleInputChange}
-                  className="text-xl font-bold bg-transparent border-b border-silver/30 text-silver-light focus:outline-none focus:border-silver w-full"
+                  className="w-full border-b-2 border-line bg-transparent text-2xl font-black text-ink focus:border-accent focus:outline-none"
                   placeholder="Enter username"
                 />
               ) : (
-                <h2 className="text-xl font-bold text-silver-light">
+                <h2 className="text-2xl font-black">
                   {user.username}
                 </h2>
               )}
-              <div className="flex items-center space-x-2 mt-2">
-                <div className="flex items-center space-x-1">
-                  <span className="text-2xl">{ratingEmoji}</span>
-                  <span className="text-silver font-medium">{user.rating}</span>
-                </div>
-                <span className="text-silver/60">•</span>
-                <div className="flex items-center space-x-1">
-                  <span className="text-lg">{rank.emoji}</span>
-                  <span className="text-sm text-silver/60">{rank.title}</span>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1">
+                  <span className="text-base">{rank.emoji}</span>
+                  <span className="text-sm font-bold text-accent-dark">{rank.title}</span>
                 </div>
               </div>
             </div>
@@ -295,18 +266,18 @@ const Profile: React.FC = () => {
 
           {/* Bio Section */}
           <div className="mb-6">
-            <h3 className="font-medium text-silver-light mb-2">About Me</h3>
+            <h3 className="mb-2 text-sm font-extrabold uppercase tracking-wider text-subtle">About Me</h3>
             {isEditing ? (
               <textarea
                 name="bio"
                 value={editData.bio}
                 onChange={handleInputChange}
                 rows={3}
-                className="input-dark w-full p-3 rounded-lg resize-none"
+                className="input-dark w-full p-3 resize-none"
                 placeholder="Tell the community about yourself..."
               />
             ) : (
-              <p className="text-silver">
+              <p className="text-muted">
                 {user.bio || 'No bio added yet. Click edit to add one!'}
               </p>
             )}
@@ -338,67 +309,55 @@ const Profile: React.FC = () => {
         </div>
 
         {/* ✅ UPDATED: Enhanced Stats Summary with Total Activity */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="card-dark p-4">
-            <div className="flex items-center space-x-3">
-              <div className="bg-dark-blue-light p-3 rounded-lg border border-silver/30">
-                <span className="text-2xl">📤</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-silver-light">
-                  {user.itemsGiven || 0}
-                </p>
-                <p className="text-sm text-silver">Items Given</p>
-              </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="card-dark flex flex-col items-center p-4 text-center">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-soft">
+              <span className="text-xl">📤</span>
             </div>
+            <p className="text-2xl font-black text-ink">
+              {user.itemsGiven || 0}
+            </p>
+            <p className="text-xs font-semibold text-muted">Items Given</p>
           </div>
           
-          <div className="card-dark p-4">
-            <div className="flex items-center space-x-3">
-              <div className="bg-dark-blue-light p-3 rounded-lg border border-silver/30">
-                <span className="text-2xl">📥</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-silver-light">
-                  {user.itemsTaken || 0}
-                </p>
-                <p className="text-sm text-silver">Items Found</p>
-              </div>
+          <div className="card-dark flex flex-col items-center p-4 text-center">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-soft">
+              <span className="text-xl">📥</span>
             </div>
+            <p className="text-2xl font-black text-ink">
+              {user.itemsTaken || 0}
+            </p>
+            <p className="text-xs font-semibold text-muted">Items Found</p>
           </div>
 
-          <div className="card-dark p-4">
-            <div className="flex items-center space-x-3">
-              <div className="bg-dark-blue-light p-3 rounded-lg border border-silver/30">
-                <span className="text-2xl">🏆</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-silver-light">
-                  {totalActivity}
-                </p>
-                <p className="text-sm text-silver">Total Activity</p>
-              </div>
+          <div className="card-dark flex flex-col items-center p-4 text-center">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-soft">
+              <span className="text-xl">🏆</span>
             </div>
+            <p className="text-2xl font-black text-ink">
+              {totalActivity}
+            </p>
+            <p className="text-xs font-semibold text-muted">Total Activity</p>
           </div>
         </div>
 
         {/* ✅ UPDATED: Enhanced Rank & Progress Section */}
         <div className="card-dark p-6">
-          <h3 className="font-semibold text-silver-light mb-4">Community Rank</h3>
+          <h3 className="mb-4 text-lg font-extrabold">Community Rank</h3>
           
           {/* Current Rank Badge */}
-          <div className="p-4 bg-gradient-to-r from-dark-blue-light to-dark-blue rounded-lg border border-silver/50 shadow-silver-glow mb-4">
+          <div className="mb-4 rounded-3xl bg-gradient-to-br from-accent to-accent-dark p-5 text-white shadow-accent">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-silver mb-1">Current Rank</p>
+                <p className="mb-1 text-sm font-semibold text-white/80">Current Rank</p>
                 <div className="flex items-center space-x-2">
                   <span className="text-3xl">{rank.emoji}</span>
-                  <span className="text-lg font-bold text-silver-light">{rank.title}</span>
+                  <span className="text-xl font-black text-white">{rank.title}</span>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm text-silver/60">Level {rank.level}</p>
-                <p className="text-xs text-silver/60">
+                <p className="text-sm font-bold text-white">Level {rank.level}</p>
+                <p className="text-xs text-white/80">
                   {totalActivity} total activities
                 </p>
               </div>
@@ -407,22 +366,22 @@ const Profile: React.FC = () => {
 
           {/* ✅ UPDATED: Progress to next rank with improved calculation */}
           {!progress.isMaxLevel && (
-            <div className="p-3 bg-dark-blue rounded-lg border border-silver/30">
+            <div className="rounded-2xl border border-line bg-sand/50 p-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-silver">
+                <p className="text-sm text-muted">
                   Progress to next rank
                 </p>
-                <p className="text-xs text-silver/60">
+                <p className="text-xs text-subtle">
                   {progress.current}/{progress.next}
                 </p>
               </div>
-              <div className="w-full bg-dark-blue-light rounded-full h-2 mb-2">
+              <div className="w-full bg-sand rounded-full h-2 mb-2">
                 <div 
-                  className="bg-silver h-2 rounded-full transition-all duration-300"
+                  className="bg-accent h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress.progress}%` }}
                 ></div>
               </div>
-              <p className="text-xs text-silver/60">
+              <p className="text-xs text-subtle">
                 {progress.activitiesNeeded} more activities needed for {
                   progress.next === 5 ? '🧹 Forager' :
                   progress.next === 15 ? '🎒 Scavenger' :
@@ -435,51 +394,29 @@ const Profile: React.FC = () => {
 
           {/* Max Level Achievement */}
           {progress.isMaxLevel && (
-            <div className="p-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg border border-yellow-500/30">
+            <div className="p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl border border-yellow-200">
               <div className="text-center">
                 <span className="text-3xl mb-2 block">🏆</span>
-                <p className="text-yellow-400 font-bold">Maximum Rank Achieved!</p>
-                <p className="text-yellow-400/80 text-sm">
+                <p className="text-yellow-600 font-bold">Maximum Rank Achieved!</p>
+                <p className="text-yellow-600/80 text-sm">
                   You've reached the highest community rank with {totalActivity} activities!
                 </p>
               </div>
             </div>
           )}
-
-          {/* Activity Breakdown */}
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="bg-dark-blue rounded-lg p-3 border border-silver/20">
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">📤</span>
-                <div>
-                  <p className="text-silver font-medium">{user.itemsGiven || 0}</p>
-                  <p className="text-xs text-silver/60">Items Given</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-dark-blue rounded-lg p-3 border border-silver/20">
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">📥</span>
-                <div>
-                  <p className="text-silver font-medium">{user.itemsTaken || 0}</p>
-                  <p className="text-xs text-silver/60">Items Found</p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* My Listings Section */}
         <div className="card-dark overflow-hidden">
-          <div className="p-4 border-b border-silver/30">
-            <h3 className="font-semibold text-silver-light flex items-center">
+          <div className="p-4 border-b border-line">
+            <h3 className="flex items-center text-lg font-extrabold">
               <Package className="w-5 h-5 mr-2" />
               My Listings
             </h3>
           </div>
 
           {/* ✅ UPDATED: Listing Status Tabs - Removed 'taken' tab */}
-          <div className="flex border-b border-silver/30">
+          <div className="mx-4 mt-4 flex gap-1 rounded-full bg-sand p-1">
             {[
               { key: 'active', label: 'Active', count: userListings.filter(l => l.status === 'active').length },
               { key: 'expired', label: 'Expired', count: userListings.filter(l => l.status === 'expired').length },
@@ -487,10 +424,10 @@ const Profile: React.FC = () => {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as any)}
-                className={`flex-1 p-3 text-sm font-medium transition-colors ${
+                className={`flex-1 rounded-full py-2 text-sm font-bold transition-all ${
                   activeTab === tab.key
-                    ? 'text-silver-light bg-dark-blue-light border-b-2 border-silver'
-                    : 'text-silver/60 hover:text-silver'
+                    ? 'bg-surface text-ink shadow-soft'
+                    : 'text-subtle hover:text-ink'
                 }`}
               >
                 {tab.label} ({tab.count})
@@ -502,47 +439,51 @@ const Profile: React.FC = () => {
           <div className="max-h-96 overflow-y-auto">
             {loadingListings ? (
               <div className="p-6 text-center">
-                <div className="w-6 h-6 border-2 border-silver/30 border-t-silver rounded-full animate-spin mx-auto mb-2"></div>
-                <p className="text-silver text-sm">Loading listings...</p>
+                <div className="w-6 h-6 border-2 border-line border-t-accent rounded-full animate-spin mx-auto mb-2"></div>
+                <p className="text-muted text-sm">Loading listings...</p>
               </div>
             ) : filteredListings.length === 0 ? (
               <div className="p-6 text-center">
                 <div className="text-4xl mb-2">📦</div>
-                <p className="text-silver text-sm">
+                <p className="text-muted text-sm">
                   {activeTab === 'active' ? 'No active listings' : 'No expired listings'}
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-silver/30">
+              <div className="divide-y divide-line">
                 {filteredListings.map((listing) => (
                   <div key={listing.id} className="p-4">
                     <div className="flex items-start space-x-3">
                       <img
                         src={listing.images[0] || 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400'}
                         alt={listing.title}
-                        className="w-16 h-16 object-cover rounded-lg"
+                        className="h-16 w-16 shrink-0 rounded-2xl object-cover"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h4 className="font-medium text-silver-light truncate">
+                            <h4 className="truncate font-extrabold text-ink">
                               {listing.title}
                               {listing.isSpotted && (
-                                <span className="ml-2 px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full border border-orange-500/30">
+                                <span className="ml-2 px-2 py-1 bg-orange-50 text-orange-600 text-xs rounded-full border border-orange-200">
                                   Spotted
                                 </span>
                               )}
                             </h4>
-                            <p className="text-sm text-silver/60 mt-1">
+                            <p className="text-sm text-subtle mt-1">
                               {listing.description.length > 50 
                                 ? `${listing.description.substring(0, 50)}...`
                                 : listing.description
                               }
                             </p>
-                            <div className="flex items-center space-x-4 mt-2 text-xs text-silver/60">
+                            <div className="flex items-center space-x-4 mt-2 text-xs text-subtle">
                               <span>{getTimePosted(listing.createdAt)}</span>
-                              <span>Rating: {listing.rating ? listing.rating.toFixed(1) : '0.0'}</span>
-                              <span>{listing.ratings.length} reviews</span>
+                              <span>
+                                {ratingSummary(listing).emoji}{' '}
+                                {ratingSummary(listing).count
+                                  ? `${ratingSummary(listing).text} (${ratingSummary(listing).count})`
+                                  : 'No ratings yet'}
+                              </span>
                             </div>
                           </div>
                           
@@ -558,7 +499,7 @@ const Profile: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => handleDeleteListing(listing.id!)}
-                                className="text-red-400 hover:text-red-300 p-1"
+                                className="text-red-600 hover:text-red-700 p-1"
                                 title="Delete listing"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -577,35 +518,35 @@ const Profile: React.FC = () => {
 
         {/* Settings Section */}
         <div className="card-dark overflow-hidden">
-          <div className="p-4 border-b border-silver/30">
-            <h3 className="font-semibold text-silver-light flex items-center">
+          <div className="p-4 border-b border-line">
+            <h3 className="flex items-center text-lg font-extrabold">
               <Settings className="w-5 h-5 mr-2" />
               Settings
             </h3>
           </div>
           
-          <div className="divide-y divide-silver/30">
+          <div className="divide-y divide-line">
             {/* Notifications Toggle */}
             <div className="p-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 {notifications ? (
-                  <Bell className="w-5 h-5 text-silver" />
+                  <Bell className="w-5 h-5 text-muted" />
                 ) : (
-                  <BellOff className="w-5 h-5 text-silver/60" />
+                  <BellOff className="w-5 h-5 text-subtle" />
                 )}
                 <div>
-                  <p className="text-silver font-medium">Notifications</p>
-                  <p className="text-sm text-silver/60">Get notified about nearby boxes</p>
+                  <p className="text-muted font-medium">Notifications</p>
+                  <p className="text-sm text-subtle">Get notified about nearby boxes</p>
                 </div>
               </div>
               <button
                 onClick={() => setNotifications(!notifications)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors active:animate-press-down ${
-                  notifications ? 'bg-silver' : 'bg-silver/30'
+                  notifications ? 'bg-accent' : 'bg-line-strong'
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-dark-blue transition-transform ${
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
                     notifications ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -616,35 +557,35 @@ const Profile: React.FC = () => {
             <div className="p-4">
               <button
                 onClick={() => setShowDetails(!showDetails)}
-                className="w-full flex items-center justify-between text-left hover:bg-dark-blue-light/50 transition-colors rounded-lg p-2 -m-2"
+                className="w-full flex items-center justify-between text-left hover:bg-sand/50 transition-colors rounded-2xl p-2 -m-2"
               >
                 <div className="flex items-center space-x-3">
-                  <User className="w-5 h-5 text-silver" />
+                  <User className="w-5 h-5 text-muted" />
                   <div>
-                    <p className="text-silver font-medium">Account Details</p>
-                    <p className="text-sm text-silver/60">View account information</p>
+                    <p className="text-muted font-medium">Account Details</p>
+                    <p className="text-sm text-subtle">View account information</p>
                   </div>
                 </div>
                 {showDetails ? (
-                  <ChevronUp className="w-5 h-5 text-silver/60" />
+                  <ChevronUp className="w-5 h-5 text-subtle" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-silver/60" />
+                  <ChevronDown className="w-5 h-5 text-subtle" />
                 )}
               </button>
 
               {showDetails && (
-                <div className="mt-4 p-4 bg-dark-blue rounded-lg border border-silver/20 space-y-2 text-sm">
+                <div className="mt-4 p-4 bg-surface rounded-2xl border border-line space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-silver/60">Email:</span>
-                    <span className="text-silver">{user.email}</span>
+                    <span className="text-subtle">Email:</span>
+                    <span className="text-muted">{user.email}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-silver/60">Joined:</span>
-                    <span className="text-silver">{formatDate(user.createdAt)}</span>
+                    <span className="text-subtle">Joined:</span>
+                    <span className="text-muted">{formatDate(user.createdAt)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-silver/60">User ID:</span>
-                    <span className="text-silver font-mono text-xs">{user.uid}</span>
+                    <span className="text-subtle">User ID:</span>
+                    <span className="text-muted font-mono text-xs">{user.uid}</span>
                   </div>
                 </div>
               )}
@@ -654,12 +595,12 @@ const Profile: React.FC = () => {
             <div className="p-4">
               <Link
                 to="/terms"
-                className="flex items-center space-x-3 hover:bg-dark-blue-light/50 transition-colors rounded-lg p-2 -m-2"
+                className="flex items-center space-x-3 hover:bg-sand/50 transition-colors rounded-2xl p-2 -m-2"
               >
-                <FileText className="w-5 h-5 text-silver" />
+                <FileText className="w-5 h-5 text-muted" />
                 <div>
-                  <p className="text-silver font-medium">Terms & Conditions</p>
-                  <p className="text-sm text-silver/60">View our terms and policies</p>
+                  <p className="text-muted font-medium">Terms & Conditions</p>
+                  <p className="text-sm text-subtle">View our terms and policies</p>
                 </div>
               </Link>
             </div>
@@ -667,7 +608,7 @@ const Profile: React.FC = () => {
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="w-full p-4 flex items-center space-x-3 hover:bg-red-500/10 transition-colors text-red-400 active:animate-press-down"
+              className="w-full p-4 flex items-center space-x-3 hover:bg-red-50 transition-colors text-red-600 active:animate-press-down"
             >
               <LogOut className="w-5 h-5" />
               <span>Sign Out</span>

@@ -162,30 +162,29 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-shimmer">
-      <div className="w-full max-w-md">
-        {/* Card with shimmer border */}
-        <div className="card-dark p-8">
-          {/* Logo & Header */}
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <div className="logo-animated text-6xl">
-                📦
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-silver-light">
-              TakeMeHomeBox
-            </h1>
-            <p className="text-silver mt-2">
-              {isLogin ? 'Welcome back to the community!' : 'Join the sharing community'}
-            </p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-canvas p-6">
+      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-soft blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-leaf-soft blur-2xl" />
+      <div className="relative w-full max-w-md animate-slide-up">
+        {/* Logo & Header */}
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-surface shadow-lift rotate-3">
+            <span className="logo-animated text-5xl -rotate-3">📦</span>
           </div>
+          <h1 className="text-3xl font-black">
+            TakeMe<span className="text-accent">Home</span>Box
+          </h1>
+          <p className="mt-2 text-muted">
+            {isLogin ? 'Welcome back, neighbour 👋' : 'Join the sharing community'}
+          </p>
+        </div>
 
+        <div className="card-dark p-6 sm:p-8">
           {/* Error Message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center space-x-3">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <p className="text-red-600 text-sm">{error}</p>
             </div>
           )}
 
@@ -193,17 +192,17 @@ const Login: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-silver mb-2">
+              <label className="mb-2 block text-sm font-bold text-ink">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-subtle" />
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="input-dark w-full pl-10 pr-4 py-3 rounded-lg"
+                  className="input-dark w-full pl-12 pr-4 py-3"
                   placeholder="your@email.com"
                   required
                   disabled={loading}
@@ -215,17 +214,17 @@ const Login: React.FC = () => {
             {/* Username (only for signup) */}
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-silver mb-2">
+                <label className="mb-2 block text-sm font-bold text-ink">
                   Unique Username
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-subtle" />
                   <input
                     type="text"
                     name="username"
                     value={formData.username}
                     onChange={handleInputChange}
-                    className={`input-dark w-full pl-10 pr-10 py-3 rounded-lg ${
+                    className={`input-dark w-full pl-12 pr-10 py-3 ${
                       formData.username.length >= 3 
                         ? usernameAvailable === true 
                           ? 'border-green-500 focus:border-green-500' 
@@ -243,7 +242,7 @@ const Login: React.FC = () => {
                   {formData.username.length >= 3 && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                       {checkingUsername ? (
-                        <div className="w-4 h-4 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 border-line border-t-accent rounded-full animate-spin"></div>
                       ) : usernameAvailable === true ? (
                         <span className="text-green-500 text-lg">✓</span>
                       ) : usernameAvailable === false ? (
@@ -253,12 +252,12 @@ const Login: React.FC = () => {
                   )}
                 </div>
                 {formData.username.length >= 3 && usernameAvailable === false && (
-                  <p className="text-red-400 text-xs mt-1">
+                  <p className="text-red-600 text-xs mt-1">
                     Username not available or invalid (min 3 chars, no spaces)
                   </p>
                 )}
                 {formData.username.length >= 3 && usernameAvailable === true && (
-                  <p className="text-green-400 text-xs mt-1">
+                  <p className="text-green-600 text-xs mt-1">
                     Username is available!
                   </p>
                 )}
@@ -267,17 +266,17 @@ const Login: React.FC = () => {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-silver mb-2">
+              <label className="mb-2 block text-sm font-bold text-ink">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver/60" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-subtle" />
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="input-dark w-full pl-10 pr-10 py-3 rounded-lg"
+                  className="input-dark w-full pl-12 pr-10 py-3"
                   placeholder="••••••••"
                   required
                   disabled={loading}
@@ -287,14 +286,14 @@ const Login: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-silver/60 hover:text-silver disabled:cursor-not-allowed"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-subtle hover:text-muted disabled:cursor-not-allowed"
                   disabled={loading}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
               {!isLogin && (
-                <p className="text-xs text-silver/60 mt-1">
+                <p className="text-xs text-subtle mt-1">
                   Password must be at least 6 characters long
                 </p>
               )}
@@ -303,17 +302,17 @@ const Login: React.FC = () => {
             {/* Bio (only for signup) */}
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-silver mb-2">
+                <label className="mb-2 block text-sm font-bold text-ink">
                   Bio (Optional)
                 </label>
                 <div className="relative">
-                  <MessageCircle className="absolute left-3 top-3 w-5 h-5 text-silver/60" />
+                  <MessageCircle className="absolute left-4 top-3.5 w-5 h-5 text-subtle" />
                   <textarea
                     name="bio"
                     value={formData.bio}
                     onChange={handleInputChange}
                     rows={3}
-                    className="input-dark w-full pl-10 pr-4 py-3 rounded-lg resize-none"
+                    className="input-dark w-full pl-12 pr-4 py-3 resize-none"
                     placeholder="Tell the community about yourself..."
                     disabled={loading}
                   />
@@ -324,12 +323,12 @@ const Login: React.FC = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              className="btn-primary w-full text-lg font-semibold py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="btn-primary w-full py-4 text-lg"
               disabled={loading || (!isLogin && !usernameAvailable)}
             >
               {loading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-silver/30 border-t-silver rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
                   <span>{isLogin ? 'Signing In...' : 'Creating Account...'}</span>
                 </>
               ) : (
@@ -342,7 +341,7 @@ const Login: React.FC = () => {
           <div className="mt-6 text-center">
             <button
               onClick={toggleMode}
-              className="text-silver hover:text-silver-light font-medium transition-colors disabled:cursor-not-allowed"
+              className="font-bold text-accent-dark hover:text-accent transition-colors disabled:cursor-not-allowed"
               disabled={loading}
             >
               {isLogin 

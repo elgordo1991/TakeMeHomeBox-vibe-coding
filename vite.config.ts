@@ -5,8 +5,7 @@ export default defineConfig(({ mode }) => {
   // ✅ Load .env variables based on current mode (e.g., development or production)
   const env = loadEnv(mode, process.cwd());
 
-  // ✅ Optional: Debug log for sanity check
-  console.log('[VITE CONFIG] Loaded API Key:', env.VITE_GOOGLE_MAPS_API_KEY);
+  console.log('[VITE CONFIG] Google Maps API key', env.VITE_GOOGLE_MAPS_API_KEY ? 'found' : 'MISSING');
 
   return {
     plugins: [react()],

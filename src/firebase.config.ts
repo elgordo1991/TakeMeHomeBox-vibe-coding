@@ -62,7 +62,9 @@ try {
     auth = getAuth(app);
     
     // ✅ ENHANCED: Firestore initialization with connection management
-    db = getFirestore(app);
+    // The Firestore database in firebase.json is a *named* database, not "(default)".
+    // getFirestore(app) alone points at "(default)", which doesn't exist in this project.
+    db = getFirestore(app, import.meta.env.VITE_FIRESTORE_DATABASE_ID || 'takemehomeboxvibe-coding');
     storage = getStorage(app);
     
     // ✅ NEW: Set up connection monitoring

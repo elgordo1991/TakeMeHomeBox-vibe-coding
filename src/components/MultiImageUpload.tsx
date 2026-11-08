@@ -129,8 +129,8 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
               className="w-full h-24 object-cover rounded-lg"
             />
             {uploading && index >= images.length ? (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-                <Loader className="w-4 h-4 text-silver animate-spin" />
+              <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center rounded-lg">
+                <Loader className="w-4 h-4 text-muted animate-spin" />
               </div>
             ) : (
               <button
@@ -146,13 +146,13 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
         ))}
         
         {canAddMore && (
-          <label className="border-2 border-dashed border-silver/30 rounded-lg h-24 flex flex-col items-center justify-center cursor-pointer hover:border-silver transition-colors hover:bg-dark-blue-light">
+          <label className="border-2 border-dashed border-line rounded-2xl h-24 flex flex-col items-center justify-center cursor-pointer hover:border-line-strong transition-colors hover:bg-sand">
             {uploading ? (
-              <Loader className="w-6 h-6 text-silver animate-spin mb-1" />
+              <Loader className="w-6 h-6 text-muted animate-spin mb-1" />
             ) : (
-              <Plus className="w-6 h-6 text-silver/60 mb-1" />
+              <Plus className="w-6 h-6 text-subtle mb-1" />
             )}
-            <span className="text-xs text-silver/60">
+            <span className="text-xs text-subtle">
               {uploading ? 'Uploading...' : 'Add Photo'}
             </span>
             <input
@@ -169,13 +169,13 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
       </div>
       
       <div className="flex items-center justify-between mt-3">
-        <p className="text-sm text-silver/60">
+        <p className="text-sm text-subtle">
           {allImages.length} of {maxImages} photos
           {allImages.length > 0 && ' • First photo will be the main image'}
         </p>
         
         {error && (
-          <div className="flex items-center space-x-1 text-red-400 text-xs">
+          <div className="flex items-center space-x-1 text-red-600 text-xs">
             <AlertCircle className="w-3 h-3" />
             <span>{error}</span>
           </div>
