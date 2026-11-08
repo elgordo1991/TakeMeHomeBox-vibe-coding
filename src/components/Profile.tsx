@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, updateListingStatus, deleteListing, BoxListing } from '../services/firestore';
 import ImageUpload from './ImageUpload';
 import { timeAgo } from '../utils/dates';
+import { ratingSummary } from '../utils/rating';
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -166,15 +167,6 @@ const Profile: React.FC = () => {
     };
   };
 
-  // Get rating emoji based on average rating
-  const getRatingEmoji = (rating: number) => {
-    if (rating >= 4.5) return '💎'; // Perfect quality
-    if (rating >= 3.5) return '✨'; // Great quality
-    if (rating >= 2.5) return '📦'; // Okay quality
-    if (rating >= 1.5) return '💩'; // Poor quality
-    return '🗑️'; // Trash quality
-  };
-
   const getTimePosted = (createdAt: unknown) => timeAgo(createdAt);
 
   // ✅ NEW: Format date helper function
@@ -205,7 +197,6 @@ const Profile: React.FC = () => {
 
   const rank = calculateRank();
   const progress = calculateProgress();
-  const ratingEmoji = getRatingEmoji(user.rating);
   const totalActivity = (user.itemsGiven || 0) + (user.itemsTaken || 0);
 
   // ✅ UPDATED: Improved filtering logic as requested
@@ -265,10 +256,6 @@ const Profile: React.FC = () => {
                 </h2>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1 rounded-full bg-sand px-2.5 py-1">
-                  <span className="text-base">{ratingEmoji}</span>
-                  <span className="text-muted font-medium">{user.rating}</span>
-                </div>
                 <div className="flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1">
                   <span className="text-base">{rank.emoji}</span>
                   <span className="text-sm font-bold text-accent-dark">{rank.title}</span>
@@ -491,8 +478,12 @@ const Profile: React.FC = () => {
                             </p>
                             <div className="flex items-center space-x-4 mt-2 text-xs text-subtle">
                               <span>{getTimePosted(listing.createdAt)}</span>
-                              <span>Rating: {listing.rating ? listing.rating.toFixed(1) : '0.0'}</span>
-                              <span>{listing.ratings.length} reviews</span>
+                              <span>
+                                {ratingSummary(listing).emoji}{' '}
+                                {ratingSummary(listing).count
+                                  ? `${ratingSummary(listing).text} (${ratingSummary(listing).count})`
+                                  : 'No ratings yet'}
+                              </span>
                             </div>
                           </div>
                           

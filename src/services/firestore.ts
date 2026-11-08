@@ -751,6 +751,9 @@ export const addRatingToListing = async (
     }
 
     const data = snap.data();
+    if (data.userId === userId) {
+      throw new Error("You can't rate your own box");
+    }
     const ratings = data.ratings || [];
 
     // Remove existing rating from this user if any

@@ -6,11 +6,13 @@ import {
   searchListings, 
   getListingsByCategory, 
   markListingAsFound,
+  addRatingToListing,
   calculateDistance,
   BoxListing 
 } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { timeAgo } from '../utils/dates';
+import { RATING_SCALE, ratingSummary, myRating } from '../utils/rating';
 
 declare global {
   interface Window {
@@ -23,6 +25,8 @@ const MapView: React.FC = () => {
   const [listings, setListings] = useState<BoxListing[]>([]);
   const [filteredListings, setFilteredListings] = useState<BoxListing[]>([]);
   const [selectedListing, setSelectedListing] = useState<BoxListing | null>(null);
+  const [savingRating, setSavingRating] = useState<number | null>(null);
+  const [ratingError, setRatingError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -229,6 +233,25 @@ const MapView: React.FC = () => {
     }
   };
 
+  const handleRate = async (listing: BoxListing, value: number) => {
+    if (!user) return;
+    setSavingRating(value);
+    setRatingError(null);
+    try {
+      await addRatingToListing(listing.id!, value, user.uid);
+      // Update the open sheet straight away; the live listener refreshes the list.
+      const others = (listing.ratings || []).filter((r) => r.userId !== user.uid);
+      const ratings = [...others, { userId: user.uid, rating: value }];
+      const rating = parseFloat((ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(2));
+      setSelectedListing({ ...listing, ratings, rating });
+    } catch (error) {
+      console.error('Error rating listing:', error);
+      setRatingError("Couldn't save your rating. Please try again.");
+    } finally {
+      setSavingRating(null);
+    }
+  };
+
   const handleMarkAsFound = async (listing: BoxListing) => {
     if (!user) {
       alert('Please sign in to mark items as found');
@@ -260,14 +283,6 @@ const MapView: React.FC = () => {
     return distance < 1 
       ? `${Math.round(distance * 1000)}m away`
       : `${distance.toFixed(1)}km away`;
-  };
-
-  const getRatingEmoji = (rating: number) => {
-    if (rating >= 4.5) return '💎';
-    if (rating >= 3.5) return '✨';
-    if (rating >= 2.5) return '📦';
-    if (rating >= 1.5) return '💩';
-    return '🗑️';
   };
 
   const getTimeAgo = (createdAt: unknown) => timeAgo(createdAt);
@@ -435,9 +450,9 @@ const MapView: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-1 ml-2">
-                        <span className="text-lg">{getRatingEmoji(listing.rating)}</span>
-                        <span className="text-sm text-muted">{listing.rating.toFixed(1)}</span>
+                      <div className="ml-2 flex shrink-0 items-center gap-1 rounded-full bg-sand px-2.5 py-1">
+                        <span className="text-base">{ratingSummary(listing).emoji}</span>
+                        <span className="text-sm font-bold text-muted">{ratingSummary(listing).text}</span>
                       </div>
                     </div>
                   </div>
@@ -484,11 +499,13 @@ const MapView: React.FC = () => {
                   <span className="text-muted capitalize">{selectedListing.category}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Rating:</span>
-                  <div className="flex items-center space-x-1">
-                    <span className="text-lg">{getRatingEmoji(selectedListing.rating)}</span>
-                    <span className="text-muted">{selectedListing.rating.toFixed(1)}</span>
-                  </div>
+                  <span>Box quality:</span>
+                  <span className="flex items-center gap-1 font-bold text-muted">
+                    <span className="text-lg">{ratingSummary(selectedListing).emoji}</span>
+                    {ratingSummary(selectedListing).count
+                      ? `${ratingSummary(selectedListing).text} · ${ratingSummary(selectedListing).count} rating${ratingSummary(selectedListing).count > 1 ? 's' : ''}`
+                      : 'No ratings yet'}
+                  </span>
                 </div>
                 {userLocation && (
                   <div className="flex items-center justify-between">
@@ -497,6 +514,42 @@ const MapView: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Rate this box */}
+              {user && selectedListing.userId !== user.uid && (
+                <div className="mb-4 rounded-2xl border border-line bg-sand/50 p-4">
+                  <p className="mb-3 text-sm font-extrabold text-ink">
+                    {myRating(selectedListing, user.uid) ? 'Your rating' : 'How good was this box?'}
+                  </p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {RATING_SCALE.map((step) => {
+                      const mine = myRating(selectedListing, user.uid) === step.value;
+                      return (
+                        <button
+                          key={step.value}
+                          type="button"
+                          disabled={savingRating !== null}
+                          onClick={() => handleRate(selectedListing, step.value)}
+                          aria-pressed={mine}
+                          aria-label={`Rate ${step.label}`}
+                          className={`flex flex-col items-center rounded-2xl border py-2 transition-all active:scale-95 disabled:opacity-60 ${
+                            mine ? 'border-accent bg-accent-soft' : 'border-line bg-surface hover:border-line-strong'
+                          }`}
+                        >
+                          <span className={`text-2xl ${savingRating === step.value ? 'animate-pulse' : ''}`}>{step.emoji}</span>
+                          <span className={`mt-0.5 text-[11px] font-bold ${mine ? 'text-accent-dark' : 'text-subtle'}`}>{step.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {ratingError && <p className="mt-2 text-xs font-semibold text-red-600">{ratingError}</p>}
+                </div>
+              )}
+              {user && selectedListing.userId === user.uid && (
+                <p className="mb-4 rounded-2xl bg-sand/50 p-3 text-center text-sm text-subtle">
+                  This is your box. Others can rate it once they've had a look.
+                </p>
+              )}
 
               <div className="flex space-x-3">
                 <button
