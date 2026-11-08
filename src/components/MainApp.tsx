@@ -6,6 +6,7 @@ import Profile from './Profile';
 import AddListing from './AddListing';
 import Terms from './Terms';
 import Login from './Login';
+import InstallPrompt from './InstallPrompt';
 import { useAuth } from '../contexts/AuthContext';
 
 const MainApp: React.FC = () => {
@@ -28,6 +29,7 @@ const MainApp: React.FC = () => {
           <Route path="/terms" element={<Terms />} />
         </Routes>
       </div>
+      <InstallPrompt />
       <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );

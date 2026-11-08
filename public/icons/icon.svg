@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#F26B3A"/>
+  <circle cx="256" cy="272" r="170" fill="#F58A5F" opacity="0.55"/>
+  <!-- heart -->
+  <path d="M256 196 C256 196 214 170 214 142 C214 124 228 112 243 112 C251 112 256 117 256 117 C256 117 261 112 269 112 C284 112 298 124 298 142 C298 170 256 196 256 196 Z" fill="#FFFFFF"/>
+  <!-- left flap -->
+  <path d="M150 232 L256 232 L226 192 L124 196 Z" fill="#F6C9A6" stroke="#2B211C" stroke-width="10" stroke-linejoin="round"/>
+  <!-- right flap -->
+  <path d="M256 232 L362 232 L388 196 L286 192 Z" fill="#F6C9A6" stroke="#2B211C" stroke-width="10" stroke-linejoin="round"/>
+  <!-- box body -->
+  <rect x="150" y="232" width="212" height="160" rx="18" fill="#FFE8DC" stroke="#2B211C" stroke-width="10"/>
+  <!-- tape -->
+  <rect x="236" y="232" width="40" height="64" fill="#F26B3A" opacity="0.85"/>
+  <!-- smile -->
+  <path d="M220 338 Q256 362 292 338" fill="none" stroke="#2B211C" stroke-width="10" stroke-linecap="round"/>
+</svg>
