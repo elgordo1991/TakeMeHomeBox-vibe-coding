@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, X, AlertCircle, Loader } from 'lucide-react';
+import { Camera, X, AlertCircle, Loader, Image as ImageIcon } from 'lucide-react';
 import { uploadImage, validateImageFile, fileToDataURL, getImageUrl } from '../utils/imageUpload';
 
 interface ImageUploadProps {
@@ -27,6 +27,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const sizeClasses = {
     sm: 'w-16 h-16',
@@ -68,9 +69,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     } finally {
       setUploading(false);
       // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -102,14 +102,19 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             {!uploading && onImageRemoved && (
               <button
                 onClick={handleRemove}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors sm:opacity-0 sm:group-hover:opacity-100"
               >
                 <X className="w-3 h-3" />
               </button>
             )}
           </>
         ) : (
-          <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-sand transition-colors">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-full h-full flex flex-col items-center justify-center hover:bg-sand transition-colors"
+          >
             {uploading ? (
               <Loader className="w-6 h-6 text-muted animate-spin mb-1" />
             ) : (
@@ -118,16 +123,43 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             <span className="text-xs text-subtle text-center px-1">
               {uploading ? 'Uploading...' : placeholder}
             </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelect}
-              disabled={uploading}
-              className="hidden"
-            />
-          </label>
+          </button>
         )}
+      </div>
+
+      {/* Take a new photo or pick one from the library */}
+      <div className="mt-2 flex justify-center gap-2">
+        <label
+          className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-accent text-white shadow-soft transition active:scale-95 ${uploading ? 'pointer-events-none opacity-50' : 'hover:bg-accent-dark'}`}
+          title="Take photo"
+        >
+          <Camera className="h-4 w-4" />
+          <span className="sr-only">Take photo</span>
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            onChange={handleFileSelect}
+            disabled={uploading}
+            className="hidden"
+          />
+        </label>
+        <label
+          className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-line bg-surface text-ink shadow-soft transition active:scale-95 ${uploading ? 'pointer-events-none opacity-50' : 'hover:bg-sand'}`}
+          title="Choose photo"
+        >
+          <ImageIcon className="h-4 w-4" />
+          <span className="sr-only">Choose photo</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            disabled={uploading}
+            className="hidden"
+          />
+        </label>
       </div>
 
       {error && (
