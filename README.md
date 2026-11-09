@@ -7,7 +7,7 @@ A community app for the boxes of free stuff people leave outside their homes. Li
 ## Features
 
 - **Map of nearby boxes** with live updates, search and category filters
-- **List a box or report a spotted one.** Only a location is required; listings expire after 48 hours
+- **List a box or report a spotted one.** Only a location is required
 - **Box quality ratings:** 🗑️ Junk · 💩 Poor · 📦 Okay · ✨ Great · 💎 Treasure (you can't rate your own box)
 - **Mark as found** to take a box off the map
 - **Profiles with ranks** earned through activity: 🆕 Noob → 🧹 Forager (5) → 🎒 Scavenger (15) → 🪙 Giver (25) → 💎 Treasure Hunter (50)
@@ -95,14 +95,13 @@ For local development, add `localhost:5173/*` to the Maps key's allowed websites
   isSpotted: boolean
   userId: string
   username: string
-  userEmail: string
   rating: number                       // average, 0 when unrated
   ratings: { userId: string, rating: 1 | 2 | 3 | 4 | 5 }[]
   status: 'active' | 'taken' | 'expired'
   takenBy?: string
   createdAt: Timestamp
   updatedAt: Timestamp
-  expiresAt?: Timestamp
+  expiresAt?: Timestamp               // not currently set; expiry is switched off
 }
 ```
 
