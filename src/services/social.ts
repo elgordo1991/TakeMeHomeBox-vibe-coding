@@ -85,13 +85,16 @@ export const startOfThisMonth = () => {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 };
 
-// Top givers this month whose boxes were left within radiusKm of `center`.
-// Based on where boxes were listed, never on where anyone lives.
+export type LegendBoard = 'givers' | 'spotters';
+
+// This month's top givers (boxes they put out) and top spotters (boxes they
+// reported), counted from boxes within radiusKm of `center`. Based on where
+// boxes were left, never on where anyone lives.
 export const getLocalLegends = async (
   center: { lat: number; lng: number },
   radiusKm = LEGENDS_RADIUS_KM,
   top = 10
-): Promise<Legend[]> => {
+): Promise<Record<LegendBoard, Legend[]>> => {
   const snap = await getDocs(
     query(
       collection(db, 'listings'),
@@ -102,26 +105,36 @@ export const getLocalLegends = async (
     )
   );
 
-  const counts = new Map<string, Legend>();
+  const counts: Record<LegendBoard, Map<string, Legend>> = { givers: new Map(), spotters: new Map() };
   snap.forEach((d) => {
     const l = d.data();
-    if (l.isSpotted) return; // spotted boxes weren't given by the person reporting them
     const c = l.location?.coordinates;
     if (!c || !l.userId) return;
     if (calculateDistance(center.lat, center.lng, c.latitude, c.longitude) > radiusKm) return;
-    const entry = counts.get(l.userId) ?? { uid: l.userId, username: l.username || 'Neighbour', boxesGiven: 0 };
+    const board = counts[l.isSpotted ? 'spotters' : 'givers'];
+    const entry = board.get(l.userId) ?? { uid: l.userId, username: l.username || 'Neighbour', boxesGiven: 0 };
     entry.boxesGiven += 1;
-    counts.set(l.userId, entry);
+    board.set(l.userId, entry);
   });
 
-  const ranked = [...counts.values()].sort((a, b) => b.boxesGiven - a.boxesGiven).slice(0, top + 5);
+  // Look up each person's public profile once (photo, rank, opt-out).
+  const profileCache = new Map<string, Promise<PublicProfile | null>>();
+  const profileFor = (uid: string) => {
+    if (!profileCache.has(uid)) profileCache.set(uid, getPublicProfile(uid).catch(() => null));
+    return profileCache.get(uid)!;
+  };
 
-  // Attach public profiles (photo, rank) and drop anyone who opted out.
-  const withProfiles = await Promise.all(
-    ranked.map(async (legend) => {
-      const profile = await getPublicProfile(legend.uid).catch(() => null);
-      return { ...legend, profile, username: profile?.username || legend.username, avatar: profile?.avatar };
-    })
-  );
-  return withProfiles.filter((l) => !l.profile?.hideFromLeaderboard).slice(0, top);
+  const finish = async (board: Map<string, Legend>) => {
+    const ranked = [...board.values()].sort((a, b) => b.boxesGiven - a.boxesGiven).slice(0, top + 5);
+    const withProfiles = await Promise.all(
+      ranked.map(async (legend) => {
+        const profile = await profileFor(legend.uid);
+        return { ...legend, profile, username: profile?.username || legend.username, avatar: profile?.avatar };
+      })
+    );
+    return withProfiles.filter((l) => !l.profile?.hideFromLeaderboard).slice(0, top);
+  };
+
+  const [givers, spotters] = await Promise.all([finish(counts.givers), finish(counts.spotters)]);
+  return { givers, spotters };
 };

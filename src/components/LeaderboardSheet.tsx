@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Loader, Trophy } from 'lucide-react';
-import { getLocalLegends, Legend, LEGENDS_RADIUS_KM } from '../services/social';
+import { getLocalLegends, Legend, LegendBoard, LEGENDS_RADIUS_KM } from '../services/social';
 import { getRank } from '../utils/ranks';
 import { getImageUrl } from '../utils/imageUpload';
 
@@ -15,13 +15,15 @@ interface Props {
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 const LeaderboardSheet: React.FC<Props> = ({ center, usingMyLocation, currentUid, onClose, onOpenProfile }) => {
-  const [legends, setLegends] = useState<Legend[] | null>(null);
+  const [boards, setBoards] = useState<Record<LegendBoard, Legend[]> | null>(null);
+  const [tab, setTab] = useState<LegendBoard>('givers');
+  const legends = boards ? boards[tab] : null;
   const [error, setError] = useState<string | null>(null);
   const month = new Date().toLocaleDateString(undefined, { month: 'long' });
 
   useEffect(() => {
     getLocalLegends(center)
-      .then(setLegends)
+      .then(setBoards)
       .catch((e) => {
         console.error('Leaderboard failed:', e);
         setError("Couldn't load the leaderboard. Please try again.");
@@ -44,7 +46,7 @@ const LeaderboardSheet: React.FC<Props> = ({ center, usingMyLocation, currentUid
               <h2 id="legends-title" className="mt-1 flex items-center gap-2 text-2xl font-black text-white">
                 <Trophy className="h-6 w-6" /> Local legends
               </h2>
-              <p className="mt-1 text-sm text-white/85">Top givers near {usingMyLocation ? 'you' : 'the map centre'} this month</p>
+              <p className="mt-1 text-sm text-white/85">Top sharers near {usingMyLocation ? 'you' : 'the map centre'} this month</p>
             </div>
             <button onClick={onClose} aria-label="Close" className="rounded-full p-1 text-white/80 hover:bg-white/15 hover:text-white">
               <X className="h-5 w-5" />
@@ -53,6 +55,24 @@ const LeaderboardSheet: React.FC<Props> = ({ center, usingMyLocation, currentUid
         </div>
 
         <div className="p-4">
+          <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-line bg-sand p-1" role="tablist">
+            {([
+              { key: 'givers', label: '🎁 Givers' },
+              { key: 'spotters', label: '👀 Spotters' },
+            ] as { key: LegendBoard; label: string }[]).map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={tab === t.key}
+                onClick={() => setTab(t.key)}
+                className={`rounded-full py-2 text-sm font-bold transition-all ${
+                  tab === t.key ? 'bg-surface text-ink shadow-soft' : 'text-subtle hover:text-ink'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           {error && <p className="p-4 text-center text-sm text-red-600">{error}</p>}
           {!error && legends === null && (
             <div className="flex justify-center py-10">
@@ -61,9 +81,13 @@ const LeaderboardSheet: React.FC<Props> = ({ center, usingMyLocation, currentUid
           )}
           {legends && legends.length === 0 && (
             <div className="py-8 text-center">
-              <p className="mb-1 text-4xl">📦</p>
-              <p className="font-extrabold text-ink">No boxes given nearby yet this month</p>
-              <p className="text-sm text-subtle">List one and you'll top the board!</p>
+              <p className="mb-1 text-4xl">{tab === 'givers' ? '📦' : '👀'}</p>
+              <p className="font-extrabold text-ink">
+                {tab === 'givers' ? 'No boxes given nearby yet this month' : 'No boxes spotted nearby yet this month'}
+              </p>
+              <p className="text-sm text-subtle">
+                {tab === 'givers' ? "List one and you'll top the board!" : 'Spot one on your travels and report it!'}
+              </p>
             </div>
           )}
           {legends && legends.length > 0 && (
@@ -94,7 +118,9 @@ const LeaderboardSheet: React.FC<Props> = ({ center, usingMyLocation, currentUid
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="text-lg font-black text-ink">{l.boxesGiven}</p>
-                        <p className="text-[11px] font-semibold text-subtle">{l.boxesGiven === 1 ? 'box' : 'boxes'}</p>
+                        <p className="text-[11px] font-semibold text-subtle">
+                          {tab === 'givers' ? (l.boxesGiven === 1 ? 'box' : 'boxes') : 'spotted'}
+                        </p>
                       </div>
                     </button>
                   </li>
