@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, MapPin, Star, Clock, User, Navigation, Loader, AlertCircle } from 'lucide-react';
+import { Search, Filter, MapPin, Star, Clock, User, Navigation, Loader, AlertCircle, Trophy } from 'lucide-react';
 import { loadGoogleMapsScript, getWarmMapStyles, getCurrentLocation } from '../utils/googleMaps';
 import { 
   subscribeToListings, 
@@ -13,6 +13,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { timeAgo } from '../utils/dates';
 import { RATING_SCALE, ratingSummary, myRating } from '../utils/rating';
+import UserProfileSheet from './UserProfileSheet';
+import LeaderboardSheet from './LeaderboardSheet';
 
 declare global {
   interface Window {
@@ -34,6 +36,8 @@ const MapView: React.FC = () => {
   const [mapsError, setMapsError] = useState<string | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [profileUser, setProfileUser] = useState<{ uid: string; name: string } | null>(null);
+  const [showLegends, setShowLegends] = useState(false);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -299,6 +303,14 @@ const MapView: React.FC = () => {
             </div>
             <div className="flex items-center space-x-2">
               <button
+                onClick={() => setShowLegends(true)}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-accent shadow-soft transition active:scale-95"
+                title="Local legends"
+                aria-label="Local legends leaderboard"
+              >
+                <Trophy className="w-5 h-5" />
+              </button>
+              <button
                 onClick={getCurrentUserLocation}
                 disabled={loadingLocation}
                 className="flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-soft transition active:scale-95 disabled:opacity-50"
@@ -434,10 +446,17 @@ const MapView: React.FC = () => {
                           {listing.description}
                         </p>
                         <div className="flex items-center space-x-4 mt-2 text-xs text-subtle">
-                          <span className="flex items-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProfileUser({ uid: listing.userId, name: listing.username });
+                            }}
+                            className="flex items-center font-bold text-accent-dark hover:underline"
+                          >
                             <User className="w-3 h-3 mr-1" />
                             {listing.username}
-                          </span>
+                          </button>
                           <span className="flex items-center">
                             <Clock className="w-3 h-3 mr-1" />
                             {getTimeAgo(listing.createdAt)}
@@ -492,7 +511,16 @@ const MapView: React.FC = () => {
               <div className="space-y-2 text-sm text-subtle mb-4">
                 <div className="flex items-center justify-between">
                   <span>Posted by:</span>
-                  <span className="text-muted">{selectedListing.username}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileUser({ uid: selectedListing.userId, name: selectedListing.username });
+                      setSelectedListing(null);
+                    }}
+                    className="font-bold text-accent-dark hover:underline"
+                  >
+                    {selectedListing.username}
+                  </button>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Category:</span>
@@ -569,6 +597,31 @@ const MapView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {profileUser && (
+        <UserProfileSheet
+          uid={profileUser.uid}
+          fallbackName={profileUser.name}
+          activeListings={listings}
+          onClose={() => setProfileUser(null)}
+          onOpenListing={(l) => {
+            setProfileUser(null);
+            setSelectedListing(l);
+          }}
+        />
+      )}
+
+      {showLegends && (
+        <LeaderboardSheet
+          center={userLocation || { lat: 51.505, lng: -0.09 }}
+          usingMyLocation={!!userLocation}
+          currentUid={user?.uid}
+          onClose={() => setShowLegends(false)}
+          onOpenProfile={(uid, name) => {
+            setShowLegends(false);
+            setProfileUser({ uid, name });
+          }}
+        />
       )}
     </div>
   );
