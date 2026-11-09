@@ -6,6 +6,8 @@ import { getUserListings, updateListingStatus, deleteListing, BoxListing } from 
 import ImageUpload from './ImageUpload';
 import { timeAgo } from '../utils/dates';
 import { ratingSummary } from '../utils/rating';
+import { getRank } from '../utils/ranks';
+import LeaderboardVisibility from './LeaderboardVisibility';
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -118,20 +120,7 @@ const Profile: React.FC = () => {
     }
   };
 
-  // ✅ UPDATED: Calculate user rank based on total activity
-  const calculateRank = () => {
-    if (!user) return { emoji: '🆕', title: 'Noob', level: 1 };
-    
-    // Calculate total activity from both itemsGiven and itemsTaken
-    const totalActivity = (user.itemsGiven || 0) + (user.itemsTaken || 0);
-    
-    // Updated rank thresholds and titles
-    if (totalActivity >= 50) return { emoji: '💎', title: 'Treasure Hunter', level: 5 };
-    if (totalActivity >= 25) return { emoji: '🪙', title: 'Giver', level: 4 };
-    if (totalActivity >= 15) return { emoji: '🎒', title: 'Scavenger', level: 3 };
-    if (totalActivity >= 5) return { emoji: '🧹', title: 'Forager', level: 2 };
-    return { emoji: '🆕', title: 'Noob', level: 1 };
-  };
+  const calculateRank = () => getRank(user?.itemsGiven, user?.itemsTaken);
 
   // ✅ NEW: Calculate progress to next rank
   const calculateProgress = () => {
@@ -556,6 +545,9 @@ const Profile: React.FC = () => {
                 />
               </button>
             </div>
+
+            {/* Local legends visibility */}
+            <LeaderboardVisibility uid={user.uid} />
 
             {/* ✅ NEW: Account Details Dropdown */}
             <div className="p-4">

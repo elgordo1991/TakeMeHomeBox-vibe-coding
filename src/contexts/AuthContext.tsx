@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { syncPublicProfile } from '../services/social';
 import { auth, db } from '../firebase.config';
 import {
   createUserWithEmailAndPassword,
@@ -150,6 +151,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // ✅ OPTIMIZED: Reduce auth state change processing
+  // Keep the public profile (what other users can see) in step with this user's profile.
+  const lastSyncedProfile = useRef<string>('');
+  useEffect(() => {
+    if (!user || !isFirebaseConfigured()) return;
+    const publicFields = {
+      uid: user.uid,
+      username: user.username,
+      avatar: user.avatar,
+      itemsGiven: user.itemsGiven,
+      itemsTaken: user.itemsTaken,
+      createdAt: user.createdAt,
+    };
+    const key = JSON.stringify(publicFields);
+    if (key === lastSyncedProfile.current) return;
+    lastSyncedProfile.current = key;
+    syncPublicProfile(publicFields).catch((e) => console.warn('Public profile sync failed:', e));
+  }, [user]);
+
   useEffect(() => {
     if (!isFirebaseConfigured()) {
       console.warn('⚠️ Firebase not configured, authentication disabled');
