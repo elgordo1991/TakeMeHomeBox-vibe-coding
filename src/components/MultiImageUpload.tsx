@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, X, AlertCircle, Loader, Plus } from 'lucide-react';
+import { Camera, X, AlertCircle, Loader, Image as ImageIcon } from 'lucide-react';
 import { uploadMultipleImages, validateImageFile, fileToDataURL, getImageUrl } from '../utils/imageUpload';
 
 interface MultiImageUploadProps {
@@ -21,6 +21,7 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -90,9 +91,8 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
     } finally {
       setUploading(false);
       // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -109,15 +109,6 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
   const allImages = [...images.map(img => getImageUrl(img)), ...previews];
   const canAddMore = allImages.length < maxImages && !uploading;
 
-  console.log('🟡 [DEBUG] MultiImageUpload render state:', {
-    images: images,
-    previews: previews,
-    allImages: allImages.length,
-    canAddMore: canAddMore,
-    uploading: uploading,
-    error: error
-  });
-
   return (
     <div className={className}>
       <div className="grid grid-cols-3 gap-3">
@@ -126,7 +117,7 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
             <img
               src={image}
               alt={`Upload ${index + 1}`}
-              className="w-full h-24 object-cover rounded-lg"
+              className="h-24 w-full rounded-2xl object-cover"
             />
             {uploading && index >= images.length ? (
               <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center rounded-lg">
@@ -145,26 +136,45 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
           </div>
         ))}
         
+        {uploading && (
+          <div className="flex h-24 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line">
+            <Loader className="mb-1 h-6 w-6 animate-spin text-muted" />
+            <span className="text-xs text-subtle">Uploading...</span>
+          </div>
+        )}
+
         {canAddMore && (
-          <label className="border-2 border-dashed border-line rounded-2xl h-24 flex flex-col items-center justify-center cursor-pointer hover:border-line-strong transition-colors hover:bg-sand">
-            {uploading ? (
-              <Loader className="w-6 h-6 text-muted animate-spin mb-1" />
-            ) : (
-              <Plus className="w-6 h-6 text-subtle mb-1" />
-            )}
-            <span className="text-xs text-subtle">
-              {uploading ? 'Uploading...' : 'Add Photo'}
-            </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFileSelect}
-              disabled={uploading}
-              className="hidden"
-            />
-          </label>
+          <>
+            {/* Opens the camera straight away on phones */}
+            <label className="flex h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-accent/40 bg-accent-soft/40 text-accent-dark transition-colors hover:border-accent hover:bg-accent-soft">
+              <Camera className="mb-1 h-6 w-6" />
+              <span className="text-xs font-bold">Take photo</span>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileSelect}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+
+            {/* Opens the photo library */}
+            <label className="flex h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line text-subtle transition-colors hover:border-line-strong hover:bg-sand">
+              <ImageIcon className="mb-1 h-6 w-6" />
+              <span className="text-xs font-bold">Choose photo</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+          </>
         )}
       </div>
       
