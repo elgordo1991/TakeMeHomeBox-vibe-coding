@@ -276,21 +276,15 @@ const AddListing: React.FC = () => {
     try {
       // Ensure we have all required user fields
       const userId = user.uid || user.id;
-      const userEmail = user.email;
       const username = user.username;
 
       console.log('🟡 [DEBUG] Validating user data:', {
         userId,
-        userEmail,
         username
       });
 
       if (!userId) {
         throw new Error('User ID is missing. Please sign out and sign in again.');
-      }
-
-      if (!userEmail) {
-        throw new Error('User email is missing. Please sign out and sign in again.');
       }
 
       if (!username) {
@@ -308,7 +302,6 @@ const AddListing: React.FC = () => {
         },
         isSpotted: formData.isSpotted,
         userId: userId,
-        userEmail: userEmail,
         username: username,
       };
 
@@ -407,7 +400,7 @@ const AddListing: React.FC = () => {
               {listedAsSpotted ? 'Thanks for the tip!' : "Your box is live!"}
             </h2>
             <p className="mb-6 text-muted">
-              It's on the map now for neighbours to find. It'll disappear automatically in 48 hours.
+              It's on the map now for neighbours to find. Mark it as taken from your Profile once it's gone.
             </p>
             <button onClick={() => navigate('/map')} className="btn-primary mb-3 w-full">
               <MapPin className="h-5 w-5" />
@@ -590,23 +583,6 @@ const AddListing: React.FC = () => {
             Leave blank for default category "Other"
           </p>
         </div>
-
-        {/* Auto-expire info */}
-        {!formData.isSpotted && (
-          <div className="bg-sand rounded-2xl p-4 border border-line">
-            <div className="flex items-start space-x-3">
-              <Calendar className="w-5 h-5 text-muted mt-0.5" />
-              <div>
-                <h4 className="font-medium text-ink">
-                  Auto-expiry in 48 hours
-                </h4>
-                <p className="text-sm text-muted">
-                  Your listing will automatically expire in 48 hours. You can mark it as taken earlier if needed.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Submit button */}
         <button
