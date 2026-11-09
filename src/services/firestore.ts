@@ -34,7 +34,7 @@ export interface BoxListing {
   };
   isSpotted: boolean;
   userId: string;
-  userEmail: string;
+  userEmail?: string;
   username: string;
   rating: number;
   ratings: { userId: string; rating: number; comment?: string }[];
@@ -66,7 +66,7 @@ export interface BoxListingInput {
   };
   isSpotted: boolean;
   userId: string;
-  userEmail: string;
+  userEmail?: string;
   username: string;
 }
 
@@ -236,7 +236,6 @@ export async function createListing(listingData: BoxListingInput): Promise<strin
     location: listingData.location,
     isSpotted: listingData.isSpotted,
     userId: listingData.userId,
-    userEmail: listingData.userEmail,
     username: listingData.username
   });
   
@@ -263,10 +262,13 @@ export async function createListing(listingData: BoxListingInput): Promise<strin
       // Convert input data to Firestore format
       const now = serverTimestamp();
       
-      // Calculate expiry date (48 hours from now for non-spotted items)
-      const expiresAt = listingData.isSpotted 
-        ? null 
-        : new Date(Date.now() + 48 * 60 * 60 * 1000);
+      // Listings don't expire for now (building up the map). Set a number of
+      // hours here to bring expiry back; it also needs a job that marks old
+      // listings as expired, which doesn't exist yet.
+      const LISTING_EXPIRY_HOURS: number | null = null;
+      const expiresAt = !listingData.isSpotted && LISTING_EXPIRY_HOURS
+        ? new Date(Date.now() + LISTING_EXPIRY_HOURS * 60 * 60 * 1000)
+        : null;
 
       const docData = {
         title: listingData.title || 'Untitled Box',
@@ -282,7 +284,7 @@ export async function createListing(listingData: BoxListingInput): Promise<strin
         },
         isSpotted: listingData.isSpotted,
         userId: listingData.userId,
-        userEmail: listingData.userEmail,
+        // Listings are publicly readable, so never store the lister's email here.
         username: listingData.username,
         rating: 0,
         ratings: [],
